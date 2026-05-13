@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import passport from 'passport';
 import { AuthController } from './auth.controller';
+
 import { validate } from '../../middlewares/validate.middleware';
 import { verifyJWT } from '../../middlewares/auth.middleware';
 import { loginRateLimit, registerRateLimit } from '../../middlewares/rateLimit.middleware';
@@ -34,7 +36,22 @@ router.post(
   (req, res, next) => controller.refresh(req, res, next)
 );
 
+// --- Google OAuth ---
+// GET /api/v1/auth/google — Mulai login Google
+router.get(
+  '/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+// GET /api/v1/auth/google/callback — Callback setelah login Google
+router.get(
+  '/google/callback',
+  passport.authenticate('google', { session: false, failureRedirect: '/login' }),
+  (req, res, next) => controller.googleCallback(req, res, next)
+);
+
 // ==========================================
+
 // PROTECTED ROUTES (butuh access token)
 // ==========================================
 

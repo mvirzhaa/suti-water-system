@@ -1,44 +1,43 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import prisma from '../../config/database';
+import { ApiResponse } from '../../utils/ApiResponse';
+import { getPaginationParams, buildMeta } from '../../utils/pagination';
 
-export const getProducts = async (req: Request, res: Response): Promise<void> => {
+/**
+ * GET /api/v1/products
+ */
+export const getProducts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    // Memanfaatkan Pagination Utility yang sudah kamu buat (asumsi manual via query jika belum terhubung)
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPaginationParams(req.query);
 
     const [products, total] = await Promise.all([
       prisma.product.findMany({
-        where: { deletedAt: null }, // Hanya ambil yang tidak di-soft-delete
+        where: { deletedAt: null },
         skip,
         take: limit,
-        include: { category: true }, // Join table kategori
+        include: { category: true },
         orderBy: { createdAt: 'desc' }
       }),
       prisma.product.count({ where: { deletedAt: null } })
     ]);
 
-    res.status(200).json({
-      success: true,
-      message: 'Berhasil mengambil daftar produk',
-      data: products,
-      meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Terjadi kesalahan server', error: error.message });
+    ApiResponse.success(res, products, 'Berhasil mengambil daftar produk', 200, buildMeta(page, limit, total));
+  } catch (error) {
+    next(error);
   }
 };
 
-export const createProduct = async (req: Request, res: Response): Promise<void> => {
+/**
+ * POST /api/v1/products
+ */
+export const createProduct = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { name, sku, categoryId, unit, priceBuy, priceSell, minStock } = req.body;
+    const { name, sku, categoryId, unit, priceBuy, priceSell, minStock, description } = req.body;
 
     if (sku) {
       const existingSku = await prisma.product.findUnique({ where: { sku } });
       if (existingSku) {
-        res.status(409).json({ success: false, message: 'SKU produk sudah digunakan' });
-        return;
+        return next({ statusCode: 409, message: 'SKU produk sudah digunakan', code: 'CONFLICT' });
       }
     }
 
@@ -51,32 +50,32 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
         priceBuy,
         priceSell,
         minStock,
-        // stock akan default 0 sesuai Prisma Schema
+        description,
+        createdBy: req.user?.userId // Ambil dari token
       }
     });
 
-    res.status(201).json({
-      success: true,
-      message: 'Produk berhasil didaftarkan',
-      data: newProduct
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Terjadi kesalahan server', error: error.message });
+    ApiResponse.created(res, newProduct, 'Produk berhasil didaftarkan');
+  } catch (error) {
+    next(error);
   }
 };
 
-export const deleteProduct = async (req: Request, res: Response): Promise<void> => {
+/**
+ * DELETE /api/v1/products/:id
+ */
+export const deleteProduct = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
-    // Lakukan Soft Delete
     await prisma.product.update({
       where: { id },
       data: { deletedAt: new Date(), isActive: false }
     });
 
-    res.status(200).json({ success: true, message: 'Produk berhasil dihapus (Soft Delete)' });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Gagal menghapus produk', error: error.message });
+
+    ApiResponse.success(res, null, 'Produk berhasil dihapus (Soft Delete)');
+  } catch (error) {
+    next(error);
   }
 };

@@ -10,7 +10,9 @@ interface AuditParams {
   newValue?: object;
   ipAddress?: string;
   userAgent?: string;
+  metadata?: any;
 }
+
 
 /**
  * Buat audit log entry — tidak pernah throw, agar tidak mengganggu operasi utama

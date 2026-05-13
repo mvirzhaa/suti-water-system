@@ -1,6 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from './auth.service';
 import { ApiResponse } from '../../utils/ApiResponse';
+import prisma from '../../config/database';
+import { 
+  generateAccessToken, 
+  generateRefreshToken, 
+  saveRefreshToken 
+} from '../../utils/generateToken';
 
 const authService = new AuthService();
 
@@ -28,7 +34,6 @@ export class AuthController {
 
   /**
    * POST /api/v1/auth/login
-   * Response: access token di body, refresh token di HttpOnly cookie
    */
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -41,9 +46,7 @@ export class AuthController {
         userAgent
       );
 
-      // Set refresh token di HttpOnly Cookie
       res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
-
       ApiResponse.success(res, { user, accessToken }, 'Login berhasil');
     } catch (err) {
       next(err);
@@ -52,16 +55,13 @@ export class AuthController {
 
   /**
    * POST /api/v1/auth/logout
-   * Revoke refresh token dari DB + clear cookie
    */
   async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const refreshToken = req.cookies?.refreshToken as string | undefined;
-
       if (refreshToken) {
         await authService.logout(refreshToken);
       }
-
       res.clearCookie('refreshToken', { path: '/api/v1/auth' });
       ApiResponse.success(res, null, 'Logout berhasil');
     } catch (err) {
@@ -71,12 +71,10 @@ export class AuthController {
 
   /**
    * POST /api/v1/auth/refresh
-   * Issue access token baru menggunakan refresh token dari cookie
    */
   async refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const refreshToken = req.cookies?.refreshToken as string | undefined;
-
       if (!refreshToken) {
         res.status(401).json({
           success: false,
@@ -85,7 +83,6 @@ export class AuthController {
         });
         return;
       }
-
       const { accessToken } = await authService.refresh(refreshToken);
       ApiResponse.success(res, { accessToken }, 'Token berhasil diperbarui');
     } catch (err) {
@@ -95,7 +92,6 @@ export class AuthController {
 
   /**
    * GET /api/v1/auth/me
-   * Get profil user yang sedang login (butuh verifyJWT)
    */
   async getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -108,7 +104,6 @@ export class AuthController {
 
   /**
    * PATCH /api/v1/auth/me
-   * Update profil sendiri (butuh verifyJWT)
    */
   async updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -121,13 +116,51 @@ export class AuthController {
 
   /**
    * PATCH /api/v1/auth/change-password
-   * Ubah password sendiri (butuh verifyJWT)
    */
   async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { currentPassword, newPassword } = req.body;
       await authService.changePassword(req.user!.userId, currentPassword, newPassword);
       ApiResponse.success(res, null, 'Password berhasil diubah');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /api/v1/auth/google/callback
+   */
+  async googleCallback(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = req.user as any;
+      if (!user) {
+        return next({ statusCode: 401, message: 'Gagal autentikasi Google' });
+      }
+
+      if (!user.isActive) {
+        return next({ statusCode: 403, message: 'Akun dinonaktifkan', code: 'ACCOUNT_INACTIVE' });
+      }
+
+      const tokenPayload = { userId: user.id, email: user.email, role: user.role };
+      const accessToken = generateAccessToken(tokenPayload);
+      const refreshToken = generateRefreshToken(tokenPayload);
+
+      const ipAddress = req.ip ?? req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+      
+      await Promise.all([
+        saveRefreshToken(user.id, refreshToken, ipAddress, userAgent),
+        prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        }),
+      ]);
+
+      res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
+      
+      // Redirect ke frontend
+      const frontendRedirectUrl = `${process.env.FRONTEND_URL}/auth/callback#token=${accessToken}`;
+      res.redirect(frontendRedirectUrl);
     } catch (err) {
       next(err);
     }

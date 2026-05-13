@@ -1,14 +1,30 @@
 import { Router } from 'express';
 import { getProducts, createProduct, deleteProduct } from './products.controller';
+import { verifyJWT } from '../../middlewares/auth.middleware';
+import { checkRole } from '../../middlewares/role.middleware';
+import { validate } from '../../middlewares/validate.middleware';
+import { createProductSchema } from './products.schema';
 
 const router = Router();
 
-router.get('/', getProducts);
+// Semua user terautentikasi bisa melihat produk
+router.get('/', verifyJWT, getProducts);
 
 // Hanya Pimpinan & Super Admin yang bisa membuat produk
-router.post('/', /* verifyJWT, checkRole(['PIMPINAN', 'SUPER_ADMIN']), */ createProduct);
+router.post(
+  '/',
+  verifyJWT,
+  checkRole(['PIMPINAN', 'SUPER_ADMIN']),
+  validate(createProductSchema),
+  createProduct
+);
 
 // Hanya Super Admin yang bisa menghapus produk
-router.delete('/:id', /* verifyJWT, checkRole(['SUPER_ADMIN']), */ deleteProduct);
+router.delete(
+  '/:id',
+  verifyJWT,
+  checkRole(['SUPER_ADMIN']),
+  deleteProduct
+);
 
 export default router;

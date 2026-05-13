@@ -16,8 +16,18 @@ import { errorMiddleware } from './middlewares/error.middleware';
 import { globalRateLimit } from './middlewares/rateLimit.middleware';
 import categoryRoutes from './modules/categories/categories.route';
 import productRoutes from './modules/products/products.route';
+import stockInRoutes from './modules/stock-in/stock-in.routes';
+import stockOutRoutes from './modules/stock-out/stock-out.routes';
+import discountRoutes from './modules/discounts/discounts.routes';
+import auditLogRoutes from './modules/audit-logs/audit-logs.routes';
+import './config/passport'; // Inisialisasi passport strategy
+
+
+
+
 
 // Routes
+
 import authRoutes from './modules/auth/auth.routes';
 
 const app: Express = express();
@@ -66,6 +76,16 @@ app.get('/api/v1/health', async (_req: Request, res: Response) => {
 // API ROUTES
 // ==========================================
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/categories', categoryRoutes);
+app.use('/api/v1/products', productRoutes);
+app.use('/api/v1/stock-in', stockInRoutes);
+app.use('/api/v1/stock-out', stockOutRoutes);
+app.use('/api/v1/discounts', discountRoutes);
+app.use('/api/v1/audit-logs', auditLogRoutes);
+
+
+
+
 
 // ==========================================
 // 404 HANDLER
@@ -83,8 +103,6 @@ app.use((_req: Request, res: Response) => {
 // ==========================================
 app.use(errorMiddleware);
 
-app.use('/api/v1/categories', categoryRoutes);
-app.use('/api/v1/products', productRoutes);
 
 // ==========================================
 // SERVER START
