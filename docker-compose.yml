@@ -1,0 +1,22 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: suti_water_dev
+      POSTGRES_USER: suti_user
+      POSTGRES_PASSWORD: suti_password_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass suti_redis_dev
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:

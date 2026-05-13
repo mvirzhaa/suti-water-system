@@ -1,0 +1,103 @@
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load .env dari root monorepo SEBELUM import apapun yang butuh env
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
+import express, { Express, Request, Response } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
+
+import prisma from './config/database';
+import logger from './utils/logger';
+import { errorMiddleware } from './middlewares/error.middleware';
+import { globalRateLimit } from './middlewares/rateLimit.middleware';
+import categoryRoutes from './modules/categories/categories.route';
+import productRoutes from './modules/products/products.route';
+
+// Routes
+import authRoutes from './modules/auth/auth.routes';
+
+const app: Express = express();
+const PORT = process.env.PORT ?? 5000;
+
+// ==========================================
+// SECURITY MIDDLEWARES
+// ==========================================
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CORS_ORIGINS?.split(',') ?? 'http://localhost:3000',
+  credentials: true, // Izinkan cookie cross-origin
+}));
+app.use(globalRateLimit);
+
+// ==========================================
+// REQUEST PARSING & LOGGING
+// ==========================================
+app.use(morgan('dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); // Wajib untuk baca HttpOnly cookie
+
+// ==========================================
+// HEALTH CHECK
+// ==========================================
+app.get('/api/v1/health', async (_req: Request, res: Response) => {
+  try {
+    await prisma.user.count();
+    res.status(200).json({
+      success: true,
+      message: 'Suti Water System API berjalan normal 💧',
+      database: 'Connected',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'API berjalan tapi koneksi database gagal ⚠️',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// ==========================================
+// API ROUTES
+// ==========================================
+app.use('/api/v1/auth', authRoutes);
+
+// ==========================================
+// 404 HANDLER
+// ==========================================
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    message: 'Endpoint tidak ditemukan',
+    code: 'NOT_FOUND',
+  });
+});
+
+// ==========================================
+// GLOBAL ERROR HANDLER (harus paling akhir)
+// ==========================================
+app.use(errorMiddleware);
+
+app.use('/api/v1/categories', categoryRoutes);
+app.use('/api/v1/products', productRoutes);
+
+// ==========================================
+// SERVER START
+// ==========================================
+app.listen(PORT, () => {
+  logger.info(`🚀 Server berjalan di http://localhost:${PORT}`);
+  logger.info(`💧 Health check: http://localhost:${PORT}/api/v1/health`);
+  logger.info(`🔐 Auth endpoints: http://localhost:${PORT}/api/v1/auth`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received. Shutting down gracefully...');
+  await prisma.$disconnect();
+  process.exit(0);
+});
