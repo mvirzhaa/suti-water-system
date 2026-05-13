@@ -69,6 +69,34 @@ model Category {
   @@map("categories")
 }
 
+model Supplier {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(150)
+  phone     String?  @db.VarChar(20)
+  address   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  stockIns  StockIn[]
+
+  @@map("suppliers")
+}
+
+model Agent {
+  id              String   @id @default(uuid())
+  name            String   @db.VarChar(150)
+  pic             String?  @db.VarChar(100)
+  phone           String?  @db.VarChar(20)
+  address         String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  stockOuts       StockOut[]
+
+  @@map("agents")
+}
+
+
 model Product {
   id          String    @id @default(uuid())
   name        String    @db.VarChar(150)
@@ -107,6 +135,7 @@ model StockIn {
   pricePerUnit Decimal  @map("price_per_unit") @db.Decimal(12, 2)
   totalCost    Decimal  @map("total_cost") @db.Decimal(14, 2)
   supplier     String?  @db.VarChar(150)
+  supplierId   String?  @map("supplier_id")
   entryDate    DateTime @map("entry_date") @db.Date
   notaUrl      String?  @map("nota_url")
   notaFilename String?  @map("nota_filename") @db.VarChar(255)
@@ -115,8 +144,9 @@ model StockIn {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  product Product @relation(fields: [productId], references: [id])
-  user    User    @relation(fields: [userId], references: [id])
+  product Product   @relation(fields: [productId], references: [id])
+  user    User      @relation(fields: [userId], references: [id])
+  suppl   Supplier? @relation(fields: [supplierId], references: [id])
 
   @@index([productId])
   @@index([userId])
@@ -134,6 +164,7 @@ model StockOut {
   discountAmount Decimal  @default(0) @map("discount_amount") @db.Decimal(12, 2)
   totalPrice     Decimal  @map("total_price") @db.Decimal(14, 2)
   buyerName      String?  @map("buyer_name") @db.VarChar(150)
+  agentId        String?  @map("agent_id")
   exitDate       DateTime @map("exit_date") @db.Date
   notaUrl        String?  @map("nota_url")
   notaFilename   String?  @map("nota_filename") @db.VarChar(255)
@@ -145,6 +176,7 @@ model StockOut {
   product  Product   @relation(fields: [productId], references: [id])
   user     User      @relation(fields: [userId], references: [id])
   discount Discount? @relation(fields: [discountId], references: [id])
+  agent    Agent?    @relation(fields: [agentId], references: [id])
 
   @@index([productId])
   @@index([userId])

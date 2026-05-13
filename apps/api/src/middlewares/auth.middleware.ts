@@ -5,9 +5,7 @@ import { ApiError } from '../utils/ApiError';
 // Extend Express Request untuk menyimpan data user yang sudah terautentikasi
 declare global {
   namespace Express {
-    interface Request {
-      user?: JwtPayload;
-    }
+    interface User extends JwtPayload {}
   }
 }
 
@@ -41,4 +39,22 @@ export function verifyJWT(req: Request, _res: Response, next: NextFunction): voi
     }
     next(ApiError.unauthorized('Autentikasi gagal'));
   }
+}
+
+/**
+ * Middleware: Otorisasi berdasarkan role
+ * @param roles List role yang diizinkan (SUPER_ADMIN, PIMPINAN, STAFF)
+ */
+export function authorize(...roles: string[]) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(ApiError.unauthorized('User tidak terautentikasi'));
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return next(ApiError.forbidden('Anda tidak memiliki izin untuk melakukan aksi ini'));
+    }
+
+    next();
+  };
 }

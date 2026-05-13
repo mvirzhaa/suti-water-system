@@ -25,7 +25,7 @@ export class DiscountController {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const discount = await discountService.update(id, req.body);
       ApiResponse.success(res, discount, 'Diskon berhasil diperbarui');
     } catch (error) {
@@ -35,7 +35,7 @@ export class DiscountController {
 
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       await discountService.delete(id);
       ApiResponse.success(res, null, 'Diskon berhasil dinonaktifkan');
     } catch (error) {

@@ -105,6 +105,32 @@ async function main() {
   }
 
   console.log('✅ Products created');
+
+  // 4. Create Suppliers
+  const supplier1 = await prisma.supplier.create({
+    data: {
+      name: 'CV. Lumbung Toda',
+      phone: '0877-7004-2820',
+      address: 'Sindang barang rt 04/04 pasir eurih, Kp. Parung Jambu, Pasireurih, Kec. Tamansari, Kabupaten Bogor, Jawa Barat 16610',
+    }
+  });
+  console.log('✅ Suppliers created');
+
+  // 5. Create Agents
+  const agents = [
+    { name: 'Yayasan Islam Al-Qudwah', pic: 'H. Nurjaya, M.Pd.', phone: '(021) 7758033', address: 'Jl. Beringin, No. 01, Jl. Margonda No.18, RT.04, Kemiri Muka, Kecamatan Beji, Kota Depok, Jawa Barat 16423' },
+    { name: 'Toserba Maju Jaya Manunggal', pic: 'Dr. Sofyan Basyir, SE.', phone: '0811 1226 242', address: 'Jl. Re. Martadinata No.42, RT.01/RW.11, Ciwaringin, Kecamatan Bogor Tengah, Kota Bogor, Jawa Barat 16124' },
+    { name: 'SMPIT Darul Quran Mulia Pabuaran', pic: 'Bpk Jauhari', phone: '0812 8882 9847', address: 'Jl. Raya Puspitek Pembangunan, Kp. Cikarang, Rt. 04/05, Desa. Pabuaran' },
+    { name: 'Cahaya Mart', pic: 'Dr. Ir. H. Dwi Sudharto, M.Si', phone: '0852 1042 3279', address: 'Jl. Perdana Raya No.22, RT.01/RW.10, Kedungbadak, Kec. Tanah Sereal, Kota Bogor, Jawa Barat 16710' }
+  ];
+
+  for (const ag of agents) {
+    await prisma.agent.create({
+      data: ag
+    });
+  }
+  console.log('✅ Agents created');
+
   console.log('✨ Seeding finished successfully!');
 }
 

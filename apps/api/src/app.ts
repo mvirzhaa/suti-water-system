@@ -14,21 +14,21 @@ import prisma from './config/database';
 import logger from './utils/logger';
 import { errorMiddleware } from './middlewares/error.middleware';
 import { globalRateLimit } from './middlewares/rateLimit.middleware';
+
+// Routes
+import authRoutes from './modules/auth/auth.routes';
 import categoryRoutes from './modules/categories/categories.route';
 import productRoutes from './modules/products/products.route';
 import stockInRoutes from './modules/stock-in/stock-in.routes';
 import stockOutRoutes from './modules/stock-out/stock-out.routes';
 import discountRoutes from './modules/discounts/discounts.routes';
 import auditLogRoutes from './modules/audit-logs/audit-logs.routes';
+import dashboardRoutes from './modules/dashboard/dashboard.route';
+import suppliersRoutes from './modules/suppliers/suppliers.routes';
+import agentsRoutes from './modules/agents/agents.routes';
+import usersRoutes from './modules/users/users.routes';
+
 import './config/passport'; // Inisialisasi passport strategy
-
-
-
-
-
-// Routes
-
-import authRoutes from './modules/auth/auth.routes';
 
 const app: Express = express();
 const PORT = process.env.PORT ?? 5000;
@@ -82,10 +82,10 @@ app.use('/api/v1/stock-in', stockInRoutes);
 app.use('/api/v1/stock-out', stockOutRoutes);
 app.use('/api/v1/discounts', discountRoutes);
 app.use('/api/v1/audit-logs', auditLogRoutes);
-
-
-
-
+app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/suppliers', suppliersRoutes);
+app.use('/api/v1/agents', agentsRoutes);
+app.use('/api/v1/users', usersRoutes);
 
 // ==========================================
 // 404 HANDLER
@@ -102,7 +102,6 @@ app.use((_req: Request, res: Response) => {
 // GLOBAL ERROR HANDLER (harus paling akhir)
 // ==========================================
 app.use(errorMiddleware);
-
 
 // ==========================================
 // SERVER START

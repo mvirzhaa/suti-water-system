@@ -50,7 +50,7 @@ passport.use(
           }
         }
 
-        return done(null, user);
+        return done(null, { ...user, userId: user.id } as Express.User);
       } catch (error) {
         logger.error('Google Auth Error:', error);
         return done(error as Error);
