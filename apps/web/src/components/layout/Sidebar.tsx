@@ -13,7 +13,8 @@ import {
   FileText,
   LogOut,
   ChevronDown,
-  X
+  X,
+  BadgePercent
 } from 'lucide-react';
 
 type SidebarProps = {
@@ -192,7 +193,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           Keluar Aplikasi
         </button>
 
-        <button style={{
+        <Link
+          href="/dashboard/discounts"
+          onClick={onClose}
+          style={{
           width: '100%',
           backgroundColor: '#0CA5EA',
           color: 'white',
@@ -205,10 +209,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           alignItems: 'center',
           justifyContent: 'center',
           gap: '0.5rem',
-          boxShadow: '0 4px 6px -1px rgba(12, 165, 234, 0.2)'
+          boxShadow: '0 4px 6px -1px rgba(12, 165, 234, 0.2)',
+          textDecoration: 'none',
         }}>
-          <span style={{ fontSize: '1.2rem' }}>%</span> Buat Kupon Sekarang!
-        </button>
+          <BadgePercent size={24} /> Buat Kupon Sekarang!
+        </Link>
       </div>
     </aside>
   );

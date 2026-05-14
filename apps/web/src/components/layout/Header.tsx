@@ -19,6 +19,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     if (pathname.includes('/stock-out')) return 'Barang Keluar';
     if (pathname.includes('/master')) return 'Master Data';
     if (pathname.includes('/reports')) return 'Laporan';
+    if (pathname.includes('/discounts')) return 'Kupon Diskon';
     return 'Dashboard';
   };
 
