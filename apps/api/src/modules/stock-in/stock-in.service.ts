@@ -8,8 +8,8 @@ export class StockInService {
    * Menambah stok barang masuk
    * Menggunakan Prisma Transaction agar data konsisten
    */
-  async create(userId: string, dto: CreateStockInDto) {
-    const { productId, quantity, pricePerUnit, supplier, entryDate, notes } = dto;
+  async create(userId: string, dto: CreateStockInDto, file?: any) {
+    const { productId, quantity, pricePerUnit, supplier, supplierId, entryDate, notes } = dto;
 
     // Hitung total cost
     const totalCost = quantity * pricePerUnit;
@@ -30,11 +30,13 @@ export class StockInService {
         data: {
           productId,
           userId,
+          supplierId,
           quantity,
           pricePerUnit,
           totalCost,
-          supplier,
+          supplier, // Fallback string
           entryDate: new Date(entryDate),
+          notaUrl: file?.path || file?.url, // Cloudinary URL
           notes
         },
         include: { product: true }
@@ -45,7 +47,6 @@ export class StockInService {
         where: { id: productId },
         data: {
           stock: { increment: quantity },
-          // Opsional: update harga beli rata-rata jika diinginkan di masa depan
         }
       });
 
@@ -76,6 +77,7 @@ export class StockInService {
         take: params.take,
         include: {
           product: { select: { name: true, sku: true, unit: true } },
+          suppl: { select: { name: true } },
           user: { select: { name: true } }
         },
         orderBy: { createdAt: 'desc' }

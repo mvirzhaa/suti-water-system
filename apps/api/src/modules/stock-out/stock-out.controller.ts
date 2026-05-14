@@ -8,7 +8,7 @@ const stockOutService = new StockOutService();
 export class StockOutController {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const stockOut = await stockOutService.create(req.user!.userId, req.body);
+      const stockOut = await stockOutService.create(req.user!.userId, req.body, req.file);
       ApiResponse.created(res, stockOut, 'Berhasil mencatat barang keluar');
     } catch (error) {
       next(error);

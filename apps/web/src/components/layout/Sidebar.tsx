@@ -41,14 +41,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Logo */}
       <div className="sidebar-brand">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-          <svg width="40" height="40" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M50 0C50 0 10 50 10 80C10 102.091 27.9086 120 50 120C72.0914 120 90 102.091 90 80C90 50 50 0 50 0Z" fill="#0CA5EA"/>
-            <path d="M25 85L45 60L55 75L75 45L90 80H10L25 85Z" fill="#84CC16"/>
-          </svg>
-          <div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#1e3a8a', lineHeight: 1.1 }}>Suti Water</h2>
-            <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#0CA5EA', lineHeight: 1.1 }}>System</span>
-          </div>
+          <img src="/images/logosidebar.png" alt="Suti Water Logo" width="180" height="120" />
         </div>
         <button
           type="button"

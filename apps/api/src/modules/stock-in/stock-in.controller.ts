@@ -8,7 +8,9 @@ const stockInService = new StockInService();
 export class StockInController {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const stockIn = await stockInService.create(req.user!.userId, req.body);
+      // req.body sudah divalidasi oleh Zod middleware
+      // req.file ada jika uploadNota berhasil
+      const stockIn = await stockInService.create(req.user!.userId, req.body, req.file);
       ApiResponse.created(res, stockIn, 'Berhasil mencatat barang masuk dan menambah stok');
     } catch (error) {
       next(error);

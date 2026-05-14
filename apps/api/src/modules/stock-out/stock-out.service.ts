@@ -7,8 +7,8 @@ export class StockOutService {
   /**
    * Mencatat barang keluar (Penjualan/Pengeluaran Stok)
    */
-  async create(userId: string, dto: CreateStockOutDto) {
-    const { productId, quantity, pricePerUnit, discountId, buyerName, exitDate, notes } = dto;
+  async create(userId: string, dto: CreateStockOutDto, file?: any) {
+    const { productId, quantity, pricePerUnit, discountId, agentId, buyerName, exitDate, notes } = dto;
 
     return await prisma.$transaction(async (tx) => {
       // 1. Ambil data produk & cek stok
@@ -24,7 +24,7 @@ export class StockOutService {
         throw ApiError.badRequest(`Stok tidak mencukupi. Stok saat ini: ${product.stock} ${product.unit}`, 'INSUFFICIENT_STOCK');
       }
 
-      // 2. Kalkulasi Diskon (Sederhana dulu, nanti bisa diperdalam di modul Discount)
+      // 2. Kalkulasi Diskon
       let discountAmount = 0;
       if (discountId) {
         const discount = await tx.discount.findUnique({ where: { id: discountId, isActive: true } });
@@ -45,12 +45,14 @@ export class StockOutService {
           productId,
           userId,
           discountId,
+          agentId,
           quantity,
           pricePerUnit,
           discountAmount,
           totalPrice,
           buyerName,
           exitDate: new Date(exitDate),
+          notaUrl: file?.path || file?.url, // Cloudinary URL
           notes
         },
         include: { product: true }
@@ -89,6 +91,7 @@ export class StockOutService {
         include: {
           product: { select: { name: true, sku: true, unit: true } },
           user: { select: { name: true } },
+          agent: { select: { name: true } },
           discount: { select: { name: true, value: true, type: true } }
         },
         orderBy: { createdAt: 'desc' }
