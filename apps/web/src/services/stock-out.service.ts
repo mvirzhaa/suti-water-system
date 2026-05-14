@@ -1,7 +1,8 @@
 import { api } from '@/lib/axios';
+import type { QueryParams } from '@/types/api';
 
 export const stockOutService = {
-  getAll: async (params?: any) => {
+  getAll: async (params?: QueryParams) => {
     const response = await api.get('/stock-out', { params });
     return response.data;
   },

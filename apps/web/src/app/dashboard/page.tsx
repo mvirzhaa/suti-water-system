@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, Package, DollarSign, ArrowUpCircle, ArrowDownCircle, AlertCircle } from 'lucide-react';
 import { dashboardService } from '@/services/dashboard.service';
+import type { DashboardSummary } from '@/types/api';
 
 export default function DashboardPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -78,7 +79,7 @@ export default function DashboardPage() {
       {/* 2. Agen Terbaik */}
       <h3 className="section-title">Agen Dengan Pembelian Tertinggi</h3>
       <div className="dash-grid-4">
-        {data.topBuyers.length > 0 ? data.topBuyers.map((agen: any, idx: number) => (
+        {data.topBuyers.length > 0 ? data.topBuyers.map((agen, idx) => (
           <div key={idx} className="dash-card" style={{ position: 'relative' }}>
             <div style={{ position: 'absolute', top: '-10px', right: '-10px', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: agen.rank === 1 ? '#eab308' : '#94a3b8', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', border: '3px solid white' }}>
               {agen.rank}
@@ -95,7 +96,7 @@ export default function DashboardPage() {
       {/* 3. Produk Terlaris */}
       <h3 className="section-title">Produk Terlaris</h3>
       <div className="dash-grid-4">
-        {data.topProducts.length > 0 ? data.topProducts.map((prod: any, idx: number) => (
+        {data.topProducts.length > 0 ? data.topProducts.map((prod, idx) => (
           <div key={idx} className="dash-card" style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
             <div style={{ position: 'absolute', top: '10px', right: '10px', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: prod.rank === 1 ? '#eab308' : '#94a3b8', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold' }}>
               {prod.rank}
@@ -189,7 +190,7 @@ export default function DashboardPage() {
             <table className="dash-table">
               <thead><tr><th>Barang</th><th>Stok</th></tr></thead>
               <tbody>
-                {data.lowStock.length > 0 ? data.lowStock.map((item: any, i: number) => (
+                {data.lowStock.length > 0 ? data.lowStock.map((item, i) => (
                   <tr key={i}>
                     <td>{item.name}</td>
                     <td><span style={{ color: '#ef4444', fontWeight: 'bold' }}>{item.stock}</span></td>
@@ -209,7 +210,7 @@ export default function DashboardPage() {
             <table className="dash-table">
               <thead><tr><th>Tanggal</th><th>Barang</th><th>Jumlah</th></tr></thead>
               <tbody>
-                {data.recentStockIn.length > 0 ? data.recentStockIn.map((item: any, i: number) => (
+                {data.recentStockIn.length > 0 ? data.recentStockIn.map((item, i) => (
                   <tr key={i}>
                     <td>{item.date}</td>
                     <td>{item.product}</td>
@@ -230,7 +231,7 @@ export default function DashboardPage() {
             <table className="dash-table">
               <thead><tr><th>Tanggal</th><th>Barang</th><th>Jumlah</th></tr></thead>
               <tbody>
-                {data.recentStockOut.length > 0 ? data.recentStockOut.map((item: any, i: number) => (
+                {data.recentStockOut.length > 0 ? data.recentStockOut.map((item, i) => (
                   <tr key={i}>
                     <td>{item.date}</td>
                     <td>{item.product}</td>

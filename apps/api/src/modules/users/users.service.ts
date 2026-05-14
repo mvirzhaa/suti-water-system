@@ -1,6 +1,7 @@
 import prisma from '../../config/database';
 import { CreateUserDto, UpdateUserDto } from './users.schema';
 import bcrypt from 'bcryptjs';
+import { createAuditLog } from '../../utils/auditLog';
 
 export class UsersService {
   async getAll() {
@@ -36,41 +37,80 @@ export class UsersService {
     });
   }
 
-  async create(data: CreateUserDto) {
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-    return prisma.user.create({
-      data: {
-        ...data,
-        password: hashedPassword
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true
-      }
+  async create(adminId: string, data: CreateUserDto) {
+    return await prisma.$transaction(async (tx) => {
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+      const user = await tx.user.create({
+        data: {
+          ...data,
+          password: hashedPassword
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true
+        }
+      });
+
+      await createAuditLog({
+        userId: adminId,
+        action: 'CREATE',
+        entity: 'USER',
+        entityId: user.id,
+        newValue: { name: user.name, email: user.email, role: user.role }
+      });
+
+      return user;
     });
   }
 
-  async update(id: string, data: UpdateUserDto) {
-    return prisma.user.update({
-      where: { id },
-      data,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true
-      }
+  async update(adminId: string, id: string, data: UpdateUserDto) {
+    return await prisma.$transaction(async (tx) => {
+      const oldUser = await tx.user.findUnique({ where: { id } });
+      const user = await tx.user.update({
+        where: { id },
+        data,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          isActive: true
+        }
+      });
+
+      await createAuditLog({
+        userId: adminId,
+        action: 'UPDATE',
+        entity: 'USER',
+        entityId: user.id,
+        oldValue: { name: oldUser?.name, email: oldUser?.email, role: oldUser?.role },
+        newValue: { name: user.name, email: user.email, role: user.role }
+      });
+
+      return user;
     });
   }
 
-  async delete(id: string) {
-    // Soft delete
-    return prisma.user.update({
-      where: { id },
-      data: { deletedAt: new Date() }
+  async delete(adminId: string, id: string) {
+    return await prisma.$transaction(async (tx) => {
+      const oldUser = await tx.user.findUnique({ where: { id } });
+      // Soft delete
+      const user = await tx.user.update({
+        where: { id },
+        data: { deletedAt: new Date() }
+      });
+
+      await createAuditLog({
+        userId: adminId,
+        action: 'DELETE',
+        entity: 'USER',
+        entityId: user.id,
+        oldValue: { name: oldUser?.name, email: oldUser?.email }
+      });
+
+      return user;
     });
   }
 }

@@ -30,7 +30,7 @@ export class UsersController {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedData = createUserSchema.parse(req.body);
-      const user = await usersService.create(validatedData);
+      const user = await usersService.create(req.user!.userId, validatedData);
       ApiResponse.success(res, user, 'Pengguna berhasil ditambahkan', 201);
     } catch (error) {
       next(error);
@@ -40,7 +40,7 @@ export class UsersController {
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedData = updateUserSchema.parse(req.body);
-      const user = await usersService.update(req.params.id as string, validatedData);
+      const user = await usersService.update(req.user!.userId, req.params.id as string, validatedData);
       ApiResponse.success(res, user, 'Pengguna berhasil diperbarui');
     } catch (error) {
       next(error);
@@ -49,7 +49,7 @@ export class UsersController {
 
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      await usersService.delete(req.params.id as string);
+      await usersService.delete(req.user!.userId, req.params.id as string);
       ApiResponse.success(res, null, 'Pengguna berhasil dihapus');
     } catch (error) {
       next(error);

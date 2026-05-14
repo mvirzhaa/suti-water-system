@@ -1,4 +1,7 @@
 import { api } from '@/lib/axios';
+import type { Supplier } from '@/types/api';
+
+type SupplierPayload = Omit<Supplier, 'id'>;
 
 export const supplierService = {
   getAll: async () => {
@@ -6,12 +9,12 @@ export const supplierService = {
     return response.data;
   },
 
-  create: async (data: any) => {
+  create: async (data: SupplierPayload) => {
     const response = await api.post('/suppliers', data);
     return response.data;
   },
 
-  update: async (id: string, data: any) => {
+  update: async (id: string, data: SupplierPayload) => {
     const response = await api.put(`/suppliers/${id}`, data);
     return response.data;
   },

@@ -2,8 +2,13 @@
 
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePathname } from 'next/navigation';
+import { Menu } from 'lucide-react';
 
-export default function Header() {
+type HeaderProps = {
+  onMenuClick: () => void;
+};
+
+export default function Header({ onMenuClick }: HeaderProps) {
   const user = useAuthStore((state) => state.user);
   const pathname = usePathname();
 
@@ -18,24 +23,27 @@ export default function Header() {
   };
 
   return (
-    <header style={{
-      height: '80px',
-      padding: '0 2rem',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      backgroundColor: 'transparent',
-    }}>
-      <h1 style={{ 
-        fontSize: '1.5rem', 
-        fontWeight: 700, 
-        color: '#1e293b',
-        fontFamily: "'Poppins', sans-serif"
-      }}>
-        {getPageTitle()}
-      </h1>
+    <header className="dashboard-header">
+      <div className="dashboard-title-group">
+        <button
+          type="button"
+          className="sidebar-toggle"
+          onClick={onMenuClick}
+          aria-label="Buka menu"
+        >
+          <Menu size={22} />
+        </button>
+        <h1 style={{
+          fontSize: '1.5rem',
+          fontWeight: 700,
+          color: '#1e293b',
+          fontFamily: "'Poppins', sans-serif"
+        }}>
+          {getPageTitle()}
+        </h1>
+      </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="dashboard-user">
         <div style={{ textAlign: 'right' }}>
           <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1e293b', margin: 0 }}>
             {user?.name || 'Memuat...'}

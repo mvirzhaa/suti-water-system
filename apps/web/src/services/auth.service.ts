@@ -20,6 +20,7 @@ export const registerSchema = z.object({
 });
 
 export type RegisterFormData = z.infer<typeof registerSchema>;
+type RegisterPayload = Omit<RegisterFormData, 'confirmPassword'>;
 
 
 export const authService = {
@@ -28,7 +29,7 @@ export const authService = {
     return response.data; // Mengembalikan { success, message, data: { user, accessToken } }
   },
   
-  register: async (data: any) => {
+  register: async (data: RegisterPayload) => {
     const response = await api.post('/auth/register', data);
     return response.data;
   },

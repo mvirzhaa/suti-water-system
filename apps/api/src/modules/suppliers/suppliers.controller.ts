@@ -30,7 +30,7 @@ export class SuppliersController {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedData = createSupplierSchema.parse(req.body);
-      const supplier = await suppliersService.create(validatedData);
+      const supplier = await suppliersService.create(req.user!.userId, validatedData);
       ApiResponse.success(res, supplier, 'Pemasok berhasil ditambahkan', 201);
     } catch (error) {
       next(error);
@@ -40,7 +40,7 @@ export class SuppliersController {
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedData = updateSupplierSchema.parse(req.body);
-      const supplier = await suppliersService.update(req.params.id as string, validatedData);
+      const supplier = await suppliersService.update(req.user!.userId, req.params.id as string, validatedData);
       ApiResponse.success(res, supplier, 'Pemasok berhasil diperbarui');
     } catch (error) {
       next(error);
@@ -49,7 +49,7 @@ export class SuppliersController {
 
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      await suppliersService.delete(req.params.id as string);
+      await suppliersService.delete(req.user!.userId, req.params.id as string);
       ApiResponse.success(res, null, 'Pemasok berhasil dihapus');
     } catch (error) {
       next(error);

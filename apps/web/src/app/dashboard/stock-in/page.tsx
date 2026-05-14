@@ -8,6 +8,8 @@ import { History, Plus, Image as ImageIcon, Trash2, CheckCircle, FileText } from
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { getApiErrorMessage } from '@/lib/api-error';
+import type { Product, StockInRecord, Supplier } from '@/types/api';
 
 // Format currency
 const formatRupiah = (number: number) => {
@@ -26,9 +28,9 @@ const stockInSchema = z.object({
 type StockInFormData = z.infer<typeof stockInSchema>;
 
 export default function StockInPage() {
-  const [data, setData] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [data, setData] = useState<StockInRecord[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modal States
@@ -36,7 +38,7 @@ export default function StockInPage() {
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
   // Form State
-  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting }, reset } = useForm<StockInFormData>({
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<StockInFormData>({
     resolver: zodResolver(stockInSchema),
     defaultValues: { quantity: 0, pricePerUnit: 0 }
   });
@@ -110,8 +112,8 @@ export default function StockInPage() {
       
       setIsSuccessModalOpen(true);
       setTimeout(() => setIsSuccessModalOpen(false), 2000); // Auto close success modal
-    } catch (error: any) {
-      alert(error.response?.data?.message || 'Terjadi kesalahan saat menyimpan data');
+    } catch (error: unknown) {
+      alert(getApiErrorMessage(error, 'Terjadi kesalahan saat menyimpan data'));
     }
   };
 
@@ -217,8 +219,8 @@ export default function StockInPage() {
 
       {/* Add Modal */}
       {isAddModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '1rem', width: '600px', maxWidth: '90%', padding: '2rem', position: 'relative' }}>
+        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '1rem' }}>
+          <div className="modal-panel stock-form-modal" style={{ backgroundColor: 'white', borderRadius: '1rem', width: '600px', maxWidth: '90%', padding: '2rem', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.25rem' }}>
               <div style={{ backgroundColor: '#0CA5EA', padding: '0.4rem', borderRadius: '0.5rem', color: 'white' }}>
                 <FileText size={20} />
@@ -327,8 +329,8 @@ export default function StockInPage() {
 
       {/* Success Modal */}
       {isSuccessModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '1rem', width: '300px', padding: '3rem 2rem', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: '1rem' }}>
+          <div className="modal-panel" style={{ backgroundColor: 'white', borderRadius: '1rem', width: '300px', padding: '3rem 2rem', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
             <CheckCircle size={80} color="#22c55e" style={{ margin: '0 auto 1rem auto' }} />
             <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Data Berhasil</h2>
             <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Di Tambahkan</h2>

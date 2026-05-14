@@ -30,7 +30,7 @@ export class AgentsController {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedData = createAgentSchema.parse(req.body);
-      const agent = await agentsService.create(validatedData);
+      const agent = await agentsService.create(req.user!.userId, validatedData);
       ApiResponse.success(res, agent, 'Agen berhasil ditambahkan', 201);
     } catch (error) {
       next(error);
@@ -40,7 +40,7 @@ export class AgentsController {
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedData = updateAgentSchema.parse(req.body);
-      const agent = await agentsService.update(req.params.id as string, validatedData);
+      const agent = await agentsService.update(req.user!.userId, req.params.id as string, validatedData);
       ApiResponse.success(res, agent, 'Agen berhasil diperbarui');
     } catch (error) {
       next(error);
@@ -49,7 +49,7 @@ export class AgentsController {
 
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      await agentsService.delete(req.params.id as string);
+      await agentsService.delete(req.user!.userId, req.params.id as string);
       ApiResponse.success(res, null, 'Agen berhasil dihapus');
     } catch (error) {
       next(error);

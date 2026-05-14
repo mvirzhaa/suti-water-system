@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, LoginFormData, authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,8 +32,8 @@ export default function LoginPage() {
       
       // Redirect ke Dashboard
       router.push('/dashboard');
-    } catch (error: any) {
-      setErrorMsg(error.response?.data?.message || 'Terjadi kesalahan saat login');
+    } catch (error: unknown) {
+      setErrorMsg(getApiErrorMessage(error, 'Terjadi kesalahan saat login'));
     }
   };
 

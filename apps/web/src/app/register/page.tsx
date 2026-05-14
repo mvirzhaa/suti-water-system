@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registerSchema, RegisterFormData, authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -39,8 +40,8 @@ export default function RegisterPage() {
       
       setAuth(loginRes.data.user, loginRes.data.accessToken);
       router.push('/dashboard');
-    } catch (error: any) {
-      setErrorMsg(error.response?.data?.message || 'Terjadi kesalahan saat pendaftaran');
+    } catch (error: unknown) {
+      setErrorMsg(getApiErrorMessage(error, 'Terjadi kesalahan saat pendaftaran'));
     }
   };
 

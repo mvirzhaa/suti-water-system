@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { getProducts, createProduct, deleteProduct } from './products.controller';
+import { getProducts, createProduct, updateProduct, deleteProduct } from './products.controller';
 import { verifyJWT } from '../../middlewares/auth.middleware';
 import { checkRole } from '../../middlewares/role.middleware';
 import { validate } from '../../middlewares/validate.middleware';
-import { createProductSchema } from './products.schema';
+import { createProductSchema, updateProductSchema } from './products.schema';
 
 const router = Router();
 
@@ -17,6 +17,15 @@ router.post(
   checkRole(['PIMPINAN', 'SUPER_ADMIN']),
   validate(createProductSchema),
   createProduct
+);
+
+// Hanya Pimpinan & Super Admin yang bisa update produk
+router.put(
+  '/:id',
+  verifyJWT,
+  checkRole(['PIMPINAN', 'SUPER_ADMIN']),
+  validate(updateProductSchema),
+  updateProduct
 );
 
 // Hanya Super Admin yang bisa menghapus produk
