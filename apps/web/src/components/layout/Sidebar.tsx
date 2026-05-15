@@ -43,7 +43,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Logo */}
       <div className="sidebar-brand">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-          <img src="/images/logo-login2.png" alt="Suti Water Logo" width="180" height="120" />
+          <img src="/images/logosidebar.png" alt="Suti Water Logo" width="220" height="120" />
         </div>
         <button
           type="button"
