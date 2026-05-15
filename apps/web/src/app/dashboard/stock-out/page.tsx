@@ -10,6 +10,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { useAuthStore } from '@/store/useAuthStore';
 import Swal from 'sweetalert2';
 import type { Agent, Discount, Product, StockOutRecord } from '@/types/api';
 
@@ -38,6 +39,15 @@ export default function StockOutPage() {
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const LIMIT = 15;
+
+  const user = useAuthStore((state) => state.user);
+  const canDelete = user?.role === 'SUPER_ADMIN' || user?.role === 'PIMPINAN';
   
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -97,17 +107,25 @@ export default function StockOutPage() {
   const estimatedTotalStock = currentStock - Number(quantity);
 
   useEffect(() => {
-    fetchData();
+    fetchData(page);
     fetchProducts();
     fetchDiscounts();
     fetchAgents();
   }, []);
 
-  const fetchData = async () => {
+  useEffect(() => {
+    fetchData(page);
+  }, [page]);
+
+  const fetchData = async (currentPage = 1) => {
     try {
       setLoading(true);
-      const res = await stockOutService.getAll();
+      const res = await stockOutService.getAll({ page: currentPage, limit: LIMIT });
       setData(res.data);
+      if (res.meta) {
+        setTotalPages(res.meta.totalPages ?? 1);
+        setTotalItems(res.meta.total ?? 0);
+      }
     } catch (error) {
       console.error('Error fetching stock out', error);
     } finally {
@@ -175,8 +193,8 @@ export default function StockOutPage() {
       setIsAddModalOpen(false);
       reset();
       if (notaInputRef.current) notaInputRef.current.value = '';
-      // Refresh tabel dan tampilkan notifikasi secara paralel
-      fetchData();
+      setPage(1);
+      await fetchData(1);
       Swal.fire({ title: 'Berhasil!', text: 'Data barang keluar berhasil ditambahkan.', icon: 'success', timer: 1500, showConfirmButton: false });
     } catch (error: unknown) {
       Swal.fire('Gagal!', getApiErrorMessage(error, 'Terjadi kesalahan saat menyimpan data'), 'error');
@@ -198,7 +216,9 @@ export default function StockOutPage() {
     if (result.isConfirmed) {
       try {
         await stockOutService.delete(id);
-        fetchData();
+        const newPage = data.length === 1 && page > 1 ? page - 1 : page;
+        setPage(newPage);
+        await fetchData(newPage);
         Swal.fire('Terhapus!', 'Data barang keluar berhasil dihapus dan stok telah dikembalikan.', 'success');
       } catch (error: unknown) {
         Swal.fire('Gagal!', getApiErrorMessage(error, 'Gagal menghapus data barang keluar.'), 'error');
@@ -288,9 +308,11 @@ export default function StockOutPage() {
                               <ImageIcon size={14} />
                             </a>
                           )}
-                          <button style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => handleDelete(item.id)} title="Hapus data barang keluar">
-                            <Trash2 size={14} />
-                          </button>
+                          {canDelete && (
+                            <button style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => handleDelete(item.id)} title="Hapus data barang keluar">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -310,6 +332,34 @@ export default function StockOutPage() {
             )}
           </table>
         </div>
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+              Menampilkan {((page - 1) * LIMIT) + 1}–{Math.min(page * LIMIT, totalItems)} dari {totalItems} data
+            </span>
+            <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+              <button type="button" onClick={() => setPage(1)} disabled={page === 1}
+                style={{ padding: '0.3rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, fontSize: '0.8rem' }}>«</button>
+              <button type="button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                style={{ padding: '0.3rem 0.7rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, fontSize: '0.8rem' }}>‹</button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+                const p = start + i;
+                return (
+                  <button key={p} type="button" onClick={() => setPage(p)}
+                    style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: p === page ? '#006FB2' : 'white', color: p === page ? 'white' : '#1e293b', cursor: 'pointer', fontWeight: p === page ? 700 : 400, fontSize: '0.8rem' }}
+                  >{p}</button>
+                );
+              })}
+              <button type="button" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                style={{ padding: '0.3rem 0.7rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, fontSize: '0.8rem' }}>›</button>
+              <button type="button" onClick={() => setPage(totalPages)} disabled={page === totalPages}
+                style={{ padding: '0.3rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, fontSize: '0.8rem' }}>»</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add Modal */}
