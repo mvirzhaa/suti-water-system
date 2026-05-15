@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 160" fill="none">
+  <!-- Botol kecil Suti Water 600ml -->
+
+  <!-- Bayangan -->
+  <ellipse cx="40" cy="152" rx="22" ry="5" fill="#93c5fd" opacity="0.3"/>
+
+  <!-- Badan botol -->
+  <path d="M18 72 Q15 85 15 105 Q15 148 40 148 Q65 148 65 105 Q65 85 62 72 Z"
+        fill="url(#botolBody)" stroke="#60a5fa" stroke-width="1.5"/>
+
+  <!-- Bahu botol — melengkung -->
+  <path d="M18 72 Q20 55 40 52 Q60 55 62 72 Z"
+        fill="url(#botolShoulder)" stroke="#60a5fa" stroke-width="1.5"/>
+
+  <!-- Leher botol -->
+  <rect x="32" y="32" width="16" height="22" rx="3"
+        fill="url(#botolNeck)" stroke="#3b82f6" stroke-width="1.5"/>
+
+  <!-- Tutup botol — biru tua bergerigi -->
+  <rect x="30" y="18" width="20" height="16" rx="5"
+        fill="url(#botolCap)" stroke="#1d4ed8" stroke-width="1"/>
+  <!-- Gerigi tutup -->
+  <line x1="34" y1="20" x2="34" y2="32" stroke="#1e40af" stroke-width="0.8" opacity="0.6"/>
+  <line x1="37" y1="20" x2="37" y2="32" stroke="#1e40af" stroke-width="0.8" opacity="0.6"/>
+  <line x1="40" y1="20" x2="40" y2="32" stroke="#1e40af" stroke-width="0.8" opacity="0.6"/>
+  <line x1="43" y1="20" x2="43" y2="32" stroke="#1e40af" stroke-width="0.8" opacity="0.6"/>
+  <line x1="46" y1="20" x2="46" y2="32" stroke="#1e40af" stroke-width="0.8" opacity="0.6"/>
+
+  <!-- Label botol -->
+  <rect x="17" y="88" width="46" height="44" rx="4"
+        fill="url(#labelBotol)" stroke="#3b82f6" stroke-width="1"/>
+
+  <!-- Tetes air di label -->
+  <path d="M40 94 Q40 94 34 103 Q32 107 34 110 Q36 115 40 115 Q44 115 46 110 Q48 107 46 103 Z"
+        fill="url(#dropBotol)" opacity="0.9"/>
+
+  <!-- Gunung kecil -->
+  <path d="M20 122 L28 110 L33 117 L38 106 L48 122 L60 122 Z"
+        fill="url(#mountainBotol)" opacity="0.7"/>
+
+  <!-- Teks Suti -->
+  <text x="40" y="128" font-family="Arial" font-size="9" font-weight="800"
+        fill="#1e3a8a" text-anchor="middle">Suti</text>
+  <text x="40" y="136" font-family="Arial" font-size="5.5" font-weight="500"
+        fill="#3b82f6" text-anchor="middle">Water</text>
+
+  <!-- Highlight badan botol -->
+  <path d="M22 78 Q21 95 22 115" stroke="white" stroke-width="3"
+        stroke-linecap="round" opacity="0.4"/>
+
+  <defs>
+    <linearGradient id="botolBody" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e0f2fe"/>
+      <stop offset="45%" stop-color="#f0f9ff"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
+    </linearGradient>
+    <linearGradient id="botolShoulder" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e0f2fe"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
+    </linearGradient>
+    <linearGradient id="botolNeck" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#bae6fd"/>
+      <stop offset="100%" stop-color="#e0f2fe"/>
+    </linearGradient>
+    <linearGradient id="botolCap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="labelBotol" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e0f2fe"/>
+      <stop offset="60%" stop-color="#bae6fd"/>
+      <stop offset="100%" stop-color="#86efac"/>
+    </linearGradient>
+    <linearGradient id="dropBotol" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#bae6fd"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="mountainBotol" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#86efac"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+  </defs>
+</svg>

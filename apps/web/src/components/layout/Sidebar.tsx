@@ -14,7 +14,8 @@ import {
   LogOut,
   ChevronDown,
   X,
-  BadgePercent
+  BadgePercent,
+  ShieldCheck
 } from 'lucide-react';
 
 type SidebarProps = {
@@ -34,6 +35,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Barang Keluar', href: '/dashboard/stock-out', icon: ArrowUpFromLine },
     { name: 'Master Data', href: '/dashboard/master', icon: Database, hasDropdown: true },
     { name: 'Laporan', href: '/dashboard/reports', icon: FileText },
+    // { name: 'Aktivitas', href: '/dashboard/audit-logs', icon: ShieldCheck }, // disembunyikan sementara
   ];
 
   return (
@@ -41,7 +43,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Logo */}
       <div className="sidebar-brand">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-          <img src="/images/logosidebar.png" alt="Suti Water Logo" width="180" height="120" />
+          <img src="/images/logo-login2.png" alt="Suti Water Logo" width="180" height="120" />
         </div>
         <button
           type="button"

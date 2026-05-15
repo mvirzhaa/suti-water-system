@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supplierService } from '@/services/supplier.service';
-import { Building2, Plus, Eye, Edit, Trash2, MapPin, Phone, Upload } from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, MapPin, Phone, Camera } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -24,6 +24,11 @@ export default function SupplierPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // State untuk foto
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -74,6 +79,8 @@ export default function SupplierPage() {
   const openAddModal = () => {
     reset();
     setEditingId(null);
+    setImageFile(null);
+    setImagePreview(null);
     setIsModalOpen(true);
   };
 
@@ -82,7 +89,18 @@ export default function SupplierPage() {
     setValue('phone', item.phone || '');
     setValue('address', item.address || '');
     setEditingId(item.id);
+    setImageFile(null);
+    setImagePreview(item.imageUrl || null);
     setIsModalOpen(true);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
   };
 
   const handleDelete = async (id: string) => {
@@ -100,8 +118,9 @@ export default function SupplierPage() {
     if (result.isConfirmed) {
       try {
         await supplierService.delete(id);
-        Swal.fire('Terhapus!', 'Data pemasok berhasil dihapus.', 'success');
+        // Refresh data dan tampilkan notifikasi secara paralel
         fetchData();
+        Swal.fire('Terhapus!', 'Data pemasok berhasil dihapus.', 'success');
       } catch {
         Swal.fire('Error', 'Gagal menghapus data pemasok.', 'error');
       }
@@ -111,14 +130,22 @@ export default function SupplierPage() {
   const onSubmit = async (values: SupplierFormValues) => {
     try {
       if (editingId) {
-        await supplierService.update(editingId, values);
-        Swal.fire('Berhasil!', 'Data pemasok berhasil diperbarui.', 'success');
+        await supplierService.update(editingId, values, imageFile);
       } else {
-        await supplierService.create(values);
-        Swal.fire('Berhasil!', 'Data pemasok berhasil ditambahkan.', 'success');
+        await supplierService.create(values, imageFile);
       }
+      // Tutup modal, reset state, refresh data, dan tampilkan notifikasi — semua sekaligus
       setIsModalOpen(false);
+      setImageFile(null);
+      setImagePreview(null);
       fetchData();
+      Swal.fire({
+        title: 'Berhasil!',
+        text: editingId ? 'Data pemasok berhasil diperbarui.' : 'Data pemasok berhasil ditambahkan.',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false,
+      });
     } catch (error: unknown) {
       Swal.fire('Gagal!', getApiErrorMessage(error, 'Terjadi kesalahan sistem.'), 'error');
     }
@@ -150,6 +177,7 @@ export default function SupplierPage() {
             <thead>
               <tr>
                 <th>No.</th>
+                <th>Foto</th>
                 <th>Nama Perusahaan Pemasok</th>
                 <th style={{ textAlign: 'center' }}>No. Telp/No. Whatsapp</th>
                 <th>Alamat Pemasok</th>
@@ -158,21 +186,32 @@ export default function SupplierPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center' }}>Memuat data...</td></tr>
+                <tr><td colSpan={6} style={{ textAlign: 'center' }}>Memuat data...</td></tr>
               ) : data.length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center' }}>Belum ada data pemasok</td></tr>
+                <tr><td colSpan={6} style={{ textAlign: 'center' }}>Belum ada data pemasok</td></tr>
               ) : (
                 data.map((item, index) => (
                   <tr key={item.id}>
                     <td>{index + 1}</td>
+                    <td>
+                      {item.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          style={{ width: '48px', height: '36px', objectFit: 'cover', borderRadius: '0.25rem', border: '1px solid #e2e8f0' }}
+                        />
+                      ) : (
+                        <div style={{ width: '48px', height: '36px', backgroundColor: '#f1f5f9', borderRadius: '0.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Building2 size={16} color="#94a3b8" />
+                        </div>
+                      )}
+                    </td>
                     <td>{item.name}</td>
                     <td style={{ textAlign: 'center' }}>{item.phone || '-'}</td>
                     <td style={{ maxWidth: '300px' }}>{item.address || '-'}</td>
                     <td>
                       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                        <button style={{ backgroundColor: '#0CA5EA', color: 'white', border: 'none', padding: '0.35rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }}>
-                          <Eye size={14} />
-                        </button>
                         <button onClick={() => openEditModal(item)} style={{ backgroundColor: '#0CA5EA', color: 'white', border: 'none', padding: '0.35rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }}>
                           <Edit size={14} />
                         </button>
@@ -259,27 +298,49 @@ export default function SupplierPage() {
           </div>
 
           {/* Baris: Foto Pemasok */}
-          <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'start', gap: '1rem' }}>
-            <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155', paddingTop: '0.5rem' }}>Foto Perusahaan Pemasok</label>
-            <div>
-              <div style={{
-                border: '2px dashed #cbd5e1',
-                borderRadius: '0.5rem',
-                padding: '1.5rem',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                backgroundColor: '#f8fafc',
-                color: '#64748b'
-              }}>
-                <Upload size={24} color="#94a3b8" />
-                <div style={{ fontSize: '0.85rem' }}>
-                  seret dan lepas file di sini atau <button type="button" style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '0.25rem', padding: '0.1rem 0.5rem', cursor: 'pointer' }}>Browse</button>
-                </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'flex-start', gap: '1rem' }}>
+            <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155', paddingTop: '0.5rem' }}>
+              Foto Perusahaan Pemasok
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {/* Preview foto */}
+              <div
+                onClick={() => imageInputRef.current?.click()}
+                style={{
+                  width: '220px', height: '160px',
+                  border: '2px dashed #cbd5e1', borderRadius: '0.5rem',
+                  overflow: 'hidden', cursor: 'pointer',
+                  backgroundColor: '#f8fafc',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  position: 'relative',
+                }}
+              >
+                {imagePreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imagePreview}
+                    alt="Preview foto pemasok"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', color: '#94a3b8' }}>
+                    <Camera size={32} />
+                    <span style={{ fontSize: '0.78rem', textAlign: 'center', padding: '0 0.5rem' }}>
+                      Klik untuk pilih foto
+                    </span>
+                  </div>
+                )}
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem', display: 'block' }}>* Opsional (Belum didukung oleh backend)</span>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png"
+                onChange={handleImageChange}
+                style={{ display: 'none' }}
+              />
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                JPG/PNG, maks. 5MB. Opsional.
+              </span>
             </div>
           </div>
 

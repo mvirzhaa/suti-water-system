@@ -30,7 +30,9 @@ export class SuppliersController {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedData = createSupplierSchema.parse(req.body);
-      const supplier = await suppliersService.create(req.user!.userId, validatedData);
+      // Jika ada file foto, ambil URL dari Cloudinary (req.file.path)
+      const imageUrl = req.file ? (req.file as any).path ?? (req.file as any).url : undefined;
+      const supplier = await suppliersService.create(req.user!.userId, validatedData, imageUrl);
       ApiResponse.success(res, supplier, 'Pemasok berhasil ditambahkan', 201);
     } catch (error) {
       next(error);
@@ -40,7 +42,8 @@ export class SuppliersController {
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedData = updateSupplierSchema.parse(req.body);
-      const supplier = await suppliersService.update(req.user!.userId, req.params.id as string, validatedData);
+      const imageUrl = req.file ? (req.file as any).path ?? (req.file as any).url : undefined;
+      const supplier = await suppliersService.update(req.user!.userId, req.params.id as string, validatedData, imageUrl);
       ApiResponse.success(res, supplier, 'Pemasok berhasil diperbarui');
     } catch (error) {
       next(error);

@@ -35,4 +35,13 @@ export class StockInController {
       next(error);
     }
   }
+
+  async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      await stockInService.delete(req.user!.userId, req.params.id as string);
+      ApiResponse.success(res, null, 'Data barang masuk berhasil dihapus dan stok telah dikembalikan');
+    } catch (error) {
+      next(error);
+    }
+  }
 }

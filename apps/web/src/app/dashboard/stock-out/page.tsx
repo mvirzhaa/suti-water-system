@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { stockOutService } from '@/services/stock-out.service';
 import { productService } from '@/services/product.service';
 import { discountService } from '@/services/discount.service';
 import { agentService } from '@/services/agent.service';
-import { ArrowUpFromLine, Plus, Image as ImageIcon, Trash2, CheckCircle, FileText, BadgePercent } from 'lucide-react';
+import { ArrowUpFromLine, Plus, Image as ImageIcon, Trash2, FileText } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getApiErrorMessage } from '@/lib/api-error';
+import Swal from 'sweetalert2';
 import type { Agent, Discount, Product, StockOutRecord } from '@/types/api';
 
 // Format currency
@@ -40,7 +41,9 @@ export default function StockOutPage() {
   
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+
+  // Ref untuk file input nota
+  const notaInputRef = useRef<HTMLInputElement>(null);
 
   // Form State
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting }, reset } = useForm<StockOutFormData>({
@@ -49,10 +52,18 @@ export default function StockOutPage() {
   });
 
   const selectedProductId = watch('productId');
+  const selectedDiscountId = watch('discountId');
   const quantity = watch('quantity') || 0;
   
   const selectedProduct = products.find(p => p.id === selectedProductId);
-  const activeDiscount = discounts.find(d => d.isActive && d.type === 'PERCENTAGE'); // Mencari diskon persentase aktif
+  // Hanya tampilkan diskon yang aktif dan masa berlakunya valid
+  const today = new Date().toISOString().slice(0, 10);
+  const activeDiscounts = discounts.filter(d =>
+    d.isActive &&
+    d.startDate <= today &&
+    (!d.endDate || d.endDate >= today)
+  );
+  const selectedDiscount = activeDiscounts.find(d => d.id === selectedDiscountId);
 
   // Derived values for the form UI
   const currentStock = selectedProduct?.stock || 0;
@@ -69,13 +80,17 @@ export default function StockOutPage() {
   const pricePerUnit = watch('pricePerUnit') || 0;
   const subTotal = quantity * pricePerUnit;
   
-  // Hitung Diskon
+  // Hitung Diskon berdasarkan pilihan user
   let discountAmount = 0;
-  let discountDisplay = 'Rp. 0';
-  if (activeDiscount) {
-    // value diskon dari DB biasanya integer (misal 8 untuk 8%)
-    discountAmount = subTotal * (Number(activeDiscount.value) / 100);
-    discountDisplay = `${activeDiscount.value}%`;
+  let discountDisplay = 'Tidak ada diskon';
+  if (selectedDiscount) {
+    if (selectedDiscount.type === 'PERCENTAGE') {
+      discountAmount = subTotal * (Number(selectedDiscount.value) / 100);
+      discountDisplay = `${selectedDiscount.value}% = ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(discountAmount)}`;
+    } else {
+      discountAmount = Number(selectedDiscount.value);
+      discountDisplay = `Rp ${Number(selectedDiscount.value).toLocaleString('id-ID')}`;
+    }
   }
   
   const totalHarga = subTotal - discountAmount;
@@ -130,7 +145,7 @@ export default function StockOutPage() {
 
   const onSubmit = async (formData: StockOutFormData) => {
     if (estimatedTotalStock < 0) {
-      alert('Stok tidak mencukupi untuk jumlah barang keluar ini!');
+      Swal.fire('Stok Tidak Cukup', 'Stok tidak mencukupi untuk jumlah barang keluar ini!', 'warning');
       return;
     }
 
@@ -148,9 +163,9 @@ export default function StockOutPage() {
       }
       
       if (formData.buyerAddress) payload.append('notes', `Alamat: ${formData.buyerAddress}`);
-      if (activeDiscount) payload.append('discountId', activeDiscount.id);
+      if (formData.discountId) payload.append('discountId', formData.discountId);
       
-      const fileInput = document.getElementById('nota-upload') as HTMLInputElement;
+      const fileInput = notaInputRef.current;
       if (fileInput && fileInput.files && fileInput.files[0]) {
         payload.append('nota', fileInput.files[0]);
       }
@@ -159,12 +174,35 @@ export default function StockOutPage() {
       
       setIsAddModalOpen(false);
       reset();
-      fetchData(); // Refresh table
-      
-      setIsSuccessModalOpen(true);
-      setTimeout(() => setIsSuccessModalOpen(false), 2000); // Auto close success modal
+      if (notaInputRef.current) notaInputRef.current.value = '';
+      // Refresh tabel dan tampilkan notifikasi secara paralel
+      fetchData();
+      Swal.fire({ title: 'Berhasil!', text: 'Data barang keluar berhasil ditambahkan.', icon: 'success', timer: 1500, showConfirmButton: false });
     } catch (error: unknown) {
-      alert(getApiErrorMessage(error, 'Terjadi kesalahan saat menyimpan data'));
+      Swal.fire('Gagal!', getApiErrorMessage(error, 'Terjadi kesalahan saat menyimpan data'), 'error');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const result = await Swal.fire({
+      title: 'Hapus data barang keluar?',
+      text: 'Stok produk akan dikembalikan secara otomatis. Tindakan ini tidak bisa dibatalkan.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Ya, Hapus!',
+      cancelButtonText: 'Batal',
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await stockOutService.delete(id);
+        fetchData();
+        Swal.fire('Terhapus!', 'Data barang keluar berhasil dihapus dan stok telah dikembalikan.', 'success');
+      } catch (error: unknown) {
+        Swal.fire('Gagal!', getApiErrorMessage(error, 'Gagal menghapus data barang keluar.'), 'error');
+      }
     }
   };
 
@@ -250,7 +288,7 @@ export default function StockOutPage() {
                               <ImageIcon size={14} />
                             </a>
                           )}
-                          <button style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }}>
+                          <button style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => handleDelete(item.id)} title="Hapus data barang keluar">
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -373,7 +411,21 @@ export default function StockOutPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
                 <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Diskon</label>
-                <input type="text" value={activeDiscount ? `(${discountDisplay}) - ${formatRupiah(discountAmount)}` : 'Tidak ada diskon aktif'} readOnly style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: '#f1f5f9' }} />
+                <div>
+                  <select {...register('discountId')} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: 'white' }}>
+                    <option value="">Tidak pakai diskon</option>
+                    {activeDiscounts.map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} — {d.type === 'PERCENTAGE' ? `${d.value}%` : `Rp ${Number(d.value).toLocaleString('id-ID')}`}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedDiscount && (
+                    <span style={{ fontSize: '0.75rem', color: '#0CA5EA', marginTop: '0.2rem', display: 'block' }}>
+                      Potongan: {discountDisplay}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
@@ -386,14 +438,9 @@ export default function StockOutPage() {
                 <input type="text" value={estimatedTotalStock} readOnly style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: '#f1f5f9', fontWeight: 'bold', color: estimatedTotalStock < 0 ? 'red' : 'black' }} />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0CA5EA', fontSize: '0.875rem', fontWeight: 600, marginTop: '0.5rem' }}>
-                <BadgePercent size={20} />
-                Kupon potongan harga akan otomatis digunakan.
-              </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
                 <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Upload Nota</label>
-                <input type="file" id="nota-upload" accept="image/*,application/pdf" style={{ fontSize: '0.875rem' }} />
+                <input ref={notaInputRef} type="file" accept="image/*,application/pdf" style={{ fontSize: '0.875rem' }} />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
@@ -403,17 +450,6 @@ export default function StockOutPage() {
               </div>
 
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Success Modal */}
-      {isSuccessModalOpen && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: '1rem' }}>
-          <div className="modal-panel" style={{ backgroundColor: 'white', borderRadius: '1rem', width: '300px', padding: '3rem 2rem', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
-            <CheckCircle size={80} color="#22c55e" style={{ margin: '0 auto 1rem auto' }} />
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Data Berhasil</h2>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Di Tambahkan</h2>
           </div>
         </div>
       )}

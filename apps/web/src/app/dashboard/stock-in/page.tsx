@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { stockInService } from '@/services/stock-in.service';
 import { productService } from '@/services/product.service';
 import { supplierService } from '@/services/supplier.service';
-import { History, Plus, Image as ImageIcon, Trash2, CheckCircle, FileText } from 'lucide-react';
+import { History, Plus, Image as ImageIcon, Trash2, FileText } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getApiErrorMessage } from '@/lib/api-error';
+import Swal from 'sweetalert2';
 import type { Product, StockInRecord, Supplier } from '@/types/api';
 
 // Format currency
@@ -35,7 +36,9 @@ export default function StockInPage() {
   
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+
+  // Ref untuk file input nota
+  const notaInputRef = useRef<HTMLInputElement>(null);
 
   // Form State
   const { register, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<StockInFormData>({
@@ -99,7 +102,7 @@ export default function StockInPage() {
       payload.append('entryDate', formData.entryDate);
       if (formData.supplierId) payload.append('supplierId', formData.supplierId);
       
-      const fileInput = document.getElementById('nota-upload') as HTMLInputElement;
+      const fileInput = notaInputRef.current;
       if (fileInput && fileInput.files && fileInput.files[0]) {
         payload.append('nota', fileInput.files[0]);
       }
@@ -108,12 +111,35 @@ export default function StockInPage() {
       
       setIsAddModalOpen(false);
       reset();
-      fetchData(); // Refresh table
-      
-      setIsSuccessModalOpen(true);
-      setTimeout(() => setIsSuccessModalOpen(false), 2000); // Auto close success modal
+      if (notaInputRef.current) notaInputRef.current.value = '';
+      // Refresh tabel dan tampilkan notifikasi secara paralel
+      fetchData();
+      Swal.fire({ title: 'Berhasil!', text: 'Data barang masuk berhasil ditambahkan.', icon: 'success', timer: 1500, showConfirmButton: false });
     } catch (error: unknown) {
-      alert(getApiErrorMessage(error, 'Terjadi kesalahan saat menyimpan data'));
+      Swal.fire('Gagal!', getApiErrorMessage(error, 'Terjadi kesalahan saat menyimpan data'), 'error');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const result = await Swal.fire({
+      title: 'Hapus data barang masuk?',
+      text: 'Stok produk akan dikembalikan secara otomatis. Tindakan ini tidak bisa dibatalkan.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Ya, Hapus!',
+      cancelButtonText: 'Batal',
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await stockInService.delete(id);
+        fetchData();
+        Swal.fire('Terhapus!', 'Data barang masuk berhasil dihapus dan stok telah dikembalikan.', 'success');
+      } catch (error: unknown) {
+        Swal.fire('Gagal!', getApiErrorMessage(error, 'Gagal menghapus data barang masuk.'), 'error');
+      }
     }
   };
 
@@ -194,7 +220,7 @@ export default function StockInPage() {
                             <ImageIcon size={14} />
                           </a>
                         )}
-                        <button style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }}>
+                        <button style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => handleDelete(item.id)} title="Hapus data barang masuk">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -313,7 +339,7 @@ export default function StockInPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', alignItems: 'center', gap: '1rem' }}>
                 <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Upload Nota</label>
-                <input type="file" id="nota-upload" accept="image/*,application/pdf" style={{ fontSize: '0.875rem' }} />
+                <input ref={notaInputRef} type="file" accept="image/*,application/pdf" style={{ fontSize: '0.875rem' }} />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
@@ -323,17 +349,6 @@ export default function StockInPage() {
               </div>
 
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Success Modal */}
-      {isSuccessModalOpen && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: '1rem' }}>
-          <div className="modal-panel" style={{ backgroundColor: 'white', borderRadius: '1rem', width: '300px', padding: '3rem 2rem', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
-            <CheckCircle size={80} color="#22c55e" style={{ margin: '0 auto 1rem auto' }} />
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Data Berhasil</h2>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Di Tambahkan</h2>
           </div>
         </div>
       )}

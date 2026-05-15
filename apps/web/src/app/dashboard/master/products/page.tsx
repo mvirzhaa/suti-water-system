@@ -21,7 +21,8 @@ const productSchema = z.object({
   name: z.string().min(1, 'Nama Barang wajib diisi'),
   description: z.string().min(1, 'Jenis Barang wajib diisi'),
   unit: z.enum(['Kardus', 'Galon'], { error: 'Pilih satuan barang' }),
-  priceSell: z.coerce.number().min(1, 'Harga wajib diisi'),
+  priceBuy: z.coerce.number().min(0, 'Harga beli tidak boleh negatif'),
+  priceSell: z.coerce.number().min(1, 'Harga jual wajib diisi'),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -93,6 +94,7 @@ export default function ProductPage() {
     setValue('name', item.name);
     setValue('description', item.description || '');
     setValue('unit', item.unit === 'Galon' ? 'Galon' : 'Kardus');
+    setValue('priceBuy', item.priceBuy ?? item.priceSell);
     setValue('priceSell', item.priceSell);
     setEditingId(item.id);
     setIsModalOpen(true);
@@ -113,8 +115,8 @@ export default function ProductPage() {
     if (result.isConfirmed) {
       try {
         await productService.delete(id);
-        Swal.fire('Terhapus!', 'Data barang berhasil dihapus.', 'success');
         fetchData();
+        Swal.fire('Terhapus!', 'Data barang berhasil dihapus.', 'success');
       } catch {
         Swal.fire('Error', 'Gagal menghapus data barang.', 'error');
       }
@@ -123,21 +125,21 @@ export default function ProductPage() {
 
   const onSubmit = async (values: ProductFormValues) => {
     try {
-      // Set priceBuy = priceSell for simplicity since UI only has Harga
-      const payload = {
-        ...values,
-        priceBuy: values.priceSell
-      };
-
+      const payload = { ...values };
       if (editingId) {
         await productService.update(editingId, payload);
-        Swal.fire('Berhasil!', 'Data barang berhasil diperbarui.', 'success');
       } else {
         await productService.create(payload);
-        Swal.fire('Berhasil!', 'Data barang berhasil ditambahkan.', 'success');
       }
       setIsModalOpen(false);
       fetchData();
+      Swal.fire({
+        title: 'Berhasil!',
+        text: editingId ? 'Data barang berhasil diperbarui.' : 'Data barang berhasil ditambahkan.',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false,
+      });
     } catch (error: unknown) {
       Swal.fire('Gagal!', getApiErrorMessage(error, 'Terjadi kesalahan sistem.'), 'error');
     }
@@ -173,7 +175,8 @@ export default function ProductPage() {
                 <th>Nama Barang</th>
                 <th>Jenis Barang</th>
                 <th>Satuan Barang</th>
-                <th>Harga</th>
+                <th>Harga Beli</th>
+                <th>Harga Jual</th>
                 <th style={{ textAlign: 'center' }}>Aksi</th>
               </tr>
             </thead>
@@ -191,6 +194,7 @@ export default function ProductPage() {
                       <td>{item.name}</td>
                       <td>{item.description || '-'}</td>
                       <td>{item.unit}</td>
+                      <td>{item.priceBuy != null ? formatRupiah(item.priceBuy) : '-'}</td>
                       <td>{formatRupiah(item.priceSell)}</td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
@@ -291,9 +295,27 @@ export default function ProductPage() {
             </div>
           </div>
 
-          {/* Baris: Harga */}
+          {/* Baris: Harga Beli */}
           <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: '1rem' }}>
-            <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155', textAlign: 'right' }}>Harga</label>
+            <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155', textAlign: 'right' }}>Harga Beli</label>
+            <div>
+              <div style={{ display: 'flex', border: '1px solid #cbd5e1', borderRadius: '0.375rem', overflow: 'hidden' }}>
+                <div style={{ padding: '0.6rem', backgroundColor: '#f8fafc', borderRight: '1px solid #cbd5e1', fontSize: '0.9rem', color: '#64748b' }}>
+                  Rp.
+                </div>
+                <input
+                  type="number"
+                  {...register('priceBuy')}
+                  style={{ flex: 1, padding: '0.6rem', border: 'none', outline: 'none' }}
+                />
+              </div>
+              {errors.priceBuy && <span style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem', display: 'block' }}>{errors.priceBuy.message}</span>}
+            </div>
+          </div>
+
+          {/* Baris: Harga Jual */}
+          <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: '1rem' }}>
+            <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155', textAlign: 'right' }}>Harga Jual</label>
             <div>
               <div style={{ display: 'flex', border: '1px solid #cbd5e1', borderRadius: '0.375rem', overflow: 'hidden' }}>
                 <div style={{ padding: '0.6rem', backgroundColor: '#f8fafc', borderRight: '1px solid #cbd5e1', fontSize: '0.9rem', color: '#64748b' }}>

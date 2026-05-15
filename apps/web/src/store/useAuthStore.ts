@@ -9,6 +9,7 @@ export interface User {
   name: string;
   role: 'SUPER_ADMIN' | 'PIMPINAN' | 'STAFF';
   avatarUrl?: string | null;
+  phone?: string | null;
 }
 
 interface AuthState {
@@ -56,7 +57,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await api.get('/auth/me');
           set({ user: res.data.data, isAuthenticated: true });
-        } catch (error) {
+        } catch {
           get().logout();
         }
       }

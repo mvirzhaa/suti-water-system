@@ -16,4 +16,9 @@ export const stockOutService = {
     });
     return response.data;
   },
+
+  delete: async (id: string) => {
+    const response = await api.delete(`/stock-out/${id}`);
+    return response.data;
+  },
 };

@@ -102,8 +102,8 @@ export default function AgentPage() {
     if (result.isConfirmed) {
       try {
         await agentService.delete(id);
-        Swal.fire('Terhapus!', 'Data agen berhasil dihapus.', 'success');
         fetchData();
+        Swal.fire('Terhapus!', 'Data agen berhasil dihapus.', 'success');
       } catch {
         Swal.fire('Error', 'Gagal menghapus data agen.', 'error');
       }
@@ -114,13 +114,18 @@ export default function AgentPage() {
     try {
       if (editingId) {
         await agentService.update(editingId, values);
-        Swal.fire('Berhasil!', 'Data agen berhasil diperbarui.', 'success');
       } else {
         await agentService.create(values);
-        Swal.fire('Berhasil!', 'Data agen berhasil ditambahkan.', 'success');
       }
       setIsModalOpen(false);
       fetchData();
+      Swal.fire({
+        title: 'Berhasil!',
+        text: editingId ? 'Data agen berhasil diperbarui.' : 'Data agen berhasil ditambahkan.',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false,
+      });
     } catch (error: unknown) {
       Swal.fire('Gagal!', getApiErrorMessage(error, 'Terjadi kesalahan sistem.'), 'error');
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuthStore } from '@/store/useAuthStore';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
 
 type HeaderProps = {
@@ -11,8 +11,8 @@ type HeaderProps = {
 export default function Header({ onMenuClick }: HeaderProps) {
   const user = useAuthStore((state) => state.user);
   const pathname = usePathname();
+  const router = useRouter();
 
-  // Simple title mapper
   const getPageTitle = () => {
     if (pathname === '/dashboard') return 'Halaman Utama';
     if (pathname.includes('/stock-in')) return 'Barang Masuk';
@@ -20,6 +20,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
     if (pathname.includes('/master')) return 'Master Data';
     if (pathname.includes('/reports')) return 'Laporan';
     if (pathname.includes('/discounts')) return 'Kupon Diskon';
+    if (pathname.includes('/profile')) return 'Data Pengguna';
+    if (pathname.includes('/audit-logs')) return 'Riwayat Aktivitas';
     return 'Dashboard';
   };
 
@@ -53,24 +55,34 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : user?.role === 'PIMPINAN' ? 'Pimpinan' : 'Staff Gudang'}
           </p>
         </div>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          backgroundColor: '#e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden'
-        }}>
+        {/* Avatar — klik untuk ke halaman profil */}
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard/profile')}
+          title="Lihat profil"
+          style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            backgroundColor: '#e2e8f0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            border: pathname.includes('/profile') ? '2px solid #0CA5EA' : '2px solid transparent',
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
           {user?.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img src={user.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#64748b' }}>
               {user?.name?.charAt(0) || 'U'}
             </span>
           )}
-        </div>
+        </button>
       </div>
     </header>
   );

@@ -120,8 +120,8 @@ export default function UserPage() {
     if (result.isConfirmed) {
       try {
         await userService.delete(id);
-        Swal.fire('Terhapus!', 'Data pengguna berhasil dihapus.', 'success');
         fetchData();
+        Swal.fire('Terhapus!', 'Data pengguna berhasil dihapus.', 'success');
       } catch {
         Swal.fire('Error', 'Gagal menghapus data pengguna.', 'error');
       }
@@ -130,7 +130,6 @@ export default function UserPage() {
 
   const onSubmit = async (values: UserFormValues) => {
     try {
-      // If editing and password is empty, don't send password
       const payload: {
         name: string;
         email: string;
@@ -150,17 +149,22 @@ export default function UserPage() {
 
       if (editingId) {
         await userService.update(editingId, payload);
-        Swal.fire('Berhasil!', 'Data pengguna berhasil diperbarui.', 'success');
       } else {
         if (!values.password) {
           Swal.fire('Gagal!', 'Password wajib diisi untuk pengguna baru.', 'error');
           return;
         }
         await userService.create(payload);
-        Swal.fire('Berhasil!', 'Data pengguna berhasil ditambahkan.', 'success');
       }
       setIsModalOpen(false);
       fetchData();
+      Swal.fire({
+        title: 'Berhasil!',
+        text: editingId ? 'Data pengguna berhasil diperbarui.' : 'Data pengguna berhasil ditambahkan.',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false,
+      });
     } catch (error: unknown) {
       Swal.fire('Gagal!', getApiErrorMessage(error, 'Terjadi kesalahan sistem.'), 'error');
     }

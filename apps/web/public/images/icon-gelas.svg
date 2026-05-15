@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" fill="none">
+  <!-- Gelas cup 220ml Suti Water -->
+
+  <!-- Bayangan -->
+  <ellipse cx="50" cy="113" rx="30" ry="5" fill="#93c5fd" opacity="0.3"/>
+
+  <!-- Badan gelas — trapesium terbalik (lebih lebar di atas) -->
+  <path d="M20 18 L26 108 Q26 112 50 112 Q74 112 74 108 L80 18 Z"
+        fill="url(#gelasBody)" stroke="#60a5fa" stroke-width="1.5"/>
+
+  <!-- Segel atas (lid) -->
+  <rect x="18" y="10" width="64" height="10" rx="2"
+        fill="url(#gelasSeal)" stroke="#3b82f6" stroke-width="1"/>
+  <!-- Lipatan segel -->
+  <path d="M18 15 Q50 12 82 15" stroke="white" stroke-width="1" opacity="0.5"/>
+
+  <!-- Label bulat di tengah gelas -->
+  <circle cx="50" cy="72" r="28" fill="url(#labelGelas)" stroke="#3b82f6" stroke-width="1.5"/>
+
+  <!-- Tetes air di label -->
+  <path d="M50 55 Q50 55 43 65 Q41 69 43 73 Q45 78 50 78 Q55 78 57 73 Q59 69 57 65 Z"
+        fill="url(#dropGelas)" opacity="0.9"/>
+
+  <!-- Gunung kecil di label -->
+  <path d="M30 84 L38 72 L43 79 L48 68 L58 84 L70 84 Z"
+        fill="url(#mountainGelas)" opacity="0.7"/>
+
+  <!-- Teks Suti -->
+  <text x="50" y="90" font-family="Arial" font-size="9" font-weight="800"
+        fill="#1e3a8a" text-anchor="middle">Suti</text>
+  <text x="50" y="98" font-family="Arial" font-size="5.5" font-weight="500"
+        fill="#3b82f6" text-anchor="middle">Water</text>
+
+  <!-- Isi bersih 220ml -->
+  <text x="68" y="62" font-family="Arial" font-size="5" font-weight="600"
+        fill="#0369a1" text-anchor="middle">220ml</text>
+
+  <!-- Highlight gelas -->
+  <path d="M26 22 Q25 50 26 80" stroke="white" stroke-width="3"
+        stroke-linecap="round" opacity="0.35"/>
+
+  <!-- Garis horizontal gelas (tekstur) -->
+  <line x1="22" y1="35" x2="78" y2="35" stroke="white" stroke-width="0.5" opacity="0.3"/>
+  <line x1="23" y1="55" x2="77" y2="55" stroke="white" stroke-width="0.5" opacity="0.3"/>
+
+  <defs>
+    <linearGradient id="gelasBody" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e0f2fe"/>
+      <stop offset="50%" stop-color="#f0f9ff"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
+    </linearGradient>
+    <linearGradient id="gelasSeal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e0f2fe"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
+    </linearGradient>
+    <linearGradient id="labelGelas" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e0f2fe"/>
+      <stop offset="55%" stop-color="#bae6fd"/>
+      <stop offset="100%" stop-color="#86efac"/>
+    </linearGradient>
+    <linearGradient id="dropGelas" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#bae6fd"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="mountainGelas" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#86efac"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+  </defs>
+</svg>

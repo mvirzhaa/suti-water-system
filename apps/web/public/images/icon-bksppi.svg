@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" fill="none">
+  <!-- BKsPPI Logo — Islamic arch with Arabic calligraphy style -->
+
+  <!-- Outer arch -->
+  <path d="M15 130 L15 60 Q15 15 60 15 Q105 15 105 60 L105 130"
+        stroke="#1e3a8a" stroke-width="6" fill="none" stroke-linecap="round"/>
+
+  <!-- Inner arch -->
+  <path d="M28 130 L28 65 Q28 30 60 30 Q92 30 92 65 L92 130"
+        stroke="#1e3a8a" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+  <!-- Arabic calligraphy style — vertical strokes (alif shapes) -->
+  <!-- Left group -->
+  <rect x="35" y="45" width="6" height="38" rx="3" fill="#1e3a8a"/>
+  <path d="M35 45 Q38 38 41 45" stroke="#1e3a8a" stroke-width="2" fill="none"/>
+
+  <rect x="45" y="50" width="6" height="33" rx="3" fill="#1e3a8a"/>
+  <path d="M45 50 Q48 43 51 50" stroke="#1e3a8a" stroke-width="2" fill="none"/>
+
+  <!-- Center tall stroke -->
+  <rect x="57" y="38" width="6" height="45" rx="3" fill="#1e3a8a"/>
+  <path d="M57 38 Q60 30 63 38" stroke="#1e3a8a" stroke-width="2" fill="none"/>
+
+  <!-- Right group -->
+  <rect x="69" y="50" width="6" height="33" rx="3" fill="#1e3a8a"/>
+  <path d="M69 50 Q72 43 75 50" stroke="#1e3a8a" stroke-width="2" fill="none"/>
+
+  <rect x="79" y="45" width="6" height="38" rx="3" fill="#1e3a8a"/>
+  <path d="M79 45 Q82 38 85 45" stroke="#1e3a8a" stroke-width="2" fill="none"/>
+
+  <!-- Horizontal base connector -->
+  <rect x="33" y="83" width="54" height="5" rx="2.5" fill="#1e3a8a"/>
+
+  <!-- Lower arch windows (like mosque windows) -->
+  <!-- Left window -->
+  <path d="M36 130 L36 100 Q36 90 44 90 Q52 90 52 100 L52 130"
+        stroke="#1e3a8a" stroke-width="3.5" fill="none"/>
+
+  <!-- Right window -->
+  <path d="M68 130 L68 100 Q68 90 76 90 Q84 90 84 100 L84 130"
+        stroke="#1e3a8a" stroke-width="3.5" fill="none"/>
+
+  <!-- Center door -->
+  <path d="M52 130 L52 105 Q52 95 60 95 Q68 95 68 105 L68 130"
+        stroke="#1e3a8a" stroke-width="3" fill="none"/>
+
+  <!-- BKsPPI text -->
+  <text x="60" y="148" font-family="Arial" font-size="13" font-weight="900"
+        fill="#16a34a" text-anchor="middle" letter-spacing="0.5">BKsPPI</text>
+</svg>

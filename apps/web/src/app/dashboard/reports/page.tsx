@@ -123,21 +123,9 @@ const isWithinRange = (value: string, range: DateRange) => {
   return date >= start && date <= end;
 };
 
-const logoSvg = `
-  <svg width="120" height="150" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M50 0C50 0 10 50 10 80C10 102.091 27.9086 120 50 120C72.0914 120 90 102.091 90 80C90 50 50 0 50 0Z" fill="#0CA5EA"/>
-    <path d="M25 85L45 60L55 75L75 45L90 80H10L25 85Z" fill="#84CC16"/>
-    <text x="50" y="88" fill="white" font-size="24" font-weight="700" font-family="Arial" text-anchor="middle">Suti</text>
-    <text x="50" y="103" fill="white" font-size="9" font-weight="500" font-family="Arial" text-anchor="middle">Water</text>
-  </svg>
-`;
+const logoSvg = `<img src="/images/logo-login2.png" alt="Suti Water" style="width:120px;height:auto;object-fit:contain;" />`;
 
-const bksppiMark = `
-  <div class="cert-mark">
-    <div class="cert-lines">|||</div>
-    <div class="cert-text">BKSPPI</div>
-  </div>
-`;
+const bksppiMark = `<img src="/images/bksppi.png" alt="BKsPPI" style="width:110px;height:auto;object-fit:contain;justify-self:end;" />`;
 
 const getReportTitle = (type: ReportType) => {
   return type === 'stock-in' ? 'Laporan Barang Masuk' : 'Laporan Barang Keluar';
@@ -298,32 +286,6 @@ const buildPrintDocument = (type: ReportType, range: DateRange, table: string) =
           }
           .cert-mark {
             justify-self: end;
-            width: 110px;
-            height: 120px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #29308f;
-            font-weight: 900;
-          }
-          .cert-lines {
-            border: 5px solid #29308f;
-            border-bottom: 0;
-            border-radius: 44px 44px 0 0;
-            width: 96px;
-            height: 80px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 54px;
-            line-height: 1;
-            letter-spacing: 2px;
-          }
-          .cert-text {
-            color: #078236;
-            font-size: 24px;
-            letter-spacing: 1px;
           }
           table {
             width: 100%;

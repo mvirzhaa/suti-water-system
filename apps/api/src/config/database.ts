@@ -2,20 +2,20 @@ import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-// Pengaman: Jika env masih gagal terbaca, server akan langsung teriak
 if (!process.env.DATABASE_URL) {
   throw new Error("💥 DATABASE_URL tidak ditemukan! File .env gagal dibaca.");
 }
 
-// 1. Buat connection pool standar PostgreSQL
-const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL 
+// Connection pool dengan konfigurasi yang optimal untuk development
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 10,                    // Maksimal 10 koneksi paralel
+  idleTimeoutMillis: 30000,   // Tutup koneksi idle setelah 30 detik
+  connectionTimeoutMillis: 5000, // Timeout jika tidak dapat koneksi dalam 5 detik
 });
 
-// 2. Bungkus dengan Prisma Adapter
 const adapter = new PrismaPg(pool);
 
-// 3. Masukkan adapter ke dalam Prisma Client
 const prisma = new PrismaClient({ adapter });
 
 export default prisma;

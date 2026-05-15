@@ -74,28 +74,28 @@ model Supplier {
   name      String   @db.VarChar(150)
   phone     String?  @db.VarChar(20)
   address   String?  @db.Text
+  imageUrl  String?  @map("image_url")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  stockIns  StockIn[]
+  stockIns StockIn[]
 
   @@map("suppliers")
 }
 
 model Agent {
-  id              String   @id @default(uuid())
-  name            String   @db.VarChar(150)
-  pic             String?  @db.VarChar(100)
-  phone           String?  @db.VarChar(20)
-  address         String?  @db.Text
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(150)
+  pic       String?  @db.VarChar(100)
+  phone     String?  @db.VarChar(20)
+  address   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  stockOuts       StockOut[]
+  stockOuts StockOut[]
 
   @@map("agents")
 }
-
 
 model Product {
   id          String    @id @default(uuid())

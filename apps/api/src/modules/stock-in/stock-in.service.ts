@@ -14,9 +14,8 @@ export class StockInService {
     // Hitung total cost
     const totalCost = quantity * pricePerUnit;
 
-    // Mulai Transaksi
-    return await prisma.$transaction(async (tx) => {
-      // 1. Cek apakah produk ada
+    // Mulai Transaksi — hanya untuk INSERT stock_in + UPDATE product.stock
+    const stockIn = await prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({
         where: { id: productId, deletedAt: null }
       });
@@ -25,42 +24,65 @@ export class StockInService {
         throw ApiError.notFound('Produk tidak ditemukan');
       }
 
-      // 2. Buat record StockIn
       const stockIn = await tx.stockIn.create({
         data: {
-          productId,
-          userId,
-          supplierId,
-          quantity,
-          pricePerUnit,
-          totalCost,
-          supplier, // Fallback string
+          productId, userId, supplierId, quantity, pricePerUnit, totalCost,
+          supplier,
           entryDate: new Date(entryDate),
-          notaUrl: file?.path || file?.url, // Cloudinary URL
+          notaUrl: file?.path || file?.url,
           notes
         },
         include: { product: true }
       });
 
-      // 3. Update stok di tabel Product
-      const updatedProduct = await tx.product.update({
+      await tx.product.update({
         where: { id: productId },
-        data: {
-          stock: { increment: quantity },
-        }
-      });
-
-      // 4. Catat Audit Log
-      await createAuditLog({
-        userId,
-        action: 'STOCK_IN',
-        entity: 'PRODUCT',
-        entityId: productId,
-        newValue: { quantity, stockAfter: updatedProduct.stock },
-        metadata: { stockInId: stockIn.id }
+        data: { stock: { increment: quantity } },
       });
 
       return stockIn;
+    });
+
+    // Audit log di luar transaction — tidak memblokir commit
+    createAuditLog({
+      userId, action: 'STOCK_IN', entity: 'PRODUCT', entityId: productId,
+      newValue: { quantity },
+      metadata: { stockInId: stockIn.id }
+    });
+
+    return stockIn;
+  }
+
+  /**
+   * Hapus record barang masuk dan kembalikan stok produk secara atomik
+   * Hanya SUPER_ADMIN & PIMPINAN yang boleh menghapus (dijaga di level route)
+   */
+  async delete(userId: string, id: string) {
+    return await prisma.$transaction(async (tx) => {
+      const stockIn = await tx.stockIn.findUnique({
+        where: { id },
+        include: { product: true },
+      });
+
+      if (!stockIn) {
+        throw ApiError.notFound('Data barang masuk tidak ditemukan');
+      }
+
+      await tx.product.update({
+        where: { id: stockIn.productId },
+        data: { stock: { decrement: stockIn.quantity } },
+      });
+
+      await tx.stockIn.delete({ where: { id } });
+
+      // Audit log di luar tidak bisa karena tx sudah commit — fire-and-forget setelah return
+      return { id, productId: stockIn.productId, quantity: stockIn.quantity };
+    }).then((result) => {
+      createAuditLog({
+        userId, action: 'DELETE_STOCK_IN', entity: 'PRODUCT', entityId: result.productId,
+        metadata: { stockInId: id }
+      });
+      return result;
     });
   }
 

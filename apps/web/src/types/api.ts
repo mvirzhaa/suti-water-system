@@ -25,6 +25,7 @@ export type Product = {
   name: string;
   description?: string | null;
   unit: ProductUnit;
+  priceBuy?: number;
   priceSell: number;
   stock?: number;
 };
@@ -34,6 +35,7 @@ export type Supplier = {
   name: string;
   phone?: string | null;
   address?: string | null;
+  imageUrl?: string | null;
 };
 
 export type Agent = {
@@ -46,9 +48,13 @@ export type Agent = {
 
 export type Discount = {
   id: string;
+  name: string;
   isActive: boolean;
-  type: string;
+  type: 'PERCENTAGE' | 'NOMINAL';
   value: number;
+  startDate: string;
+  endDate?: string | null;
+  minQuantity?: number | null;
 };
 
 export type StockInRecord = {

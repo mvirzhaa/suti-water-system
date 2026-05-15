@@ -20,4 +20,13 @@ router.post(
   (req, res, next) => controller.create(req, res, next)
 );
 
+// Hanya SUPER_ADMIN & PIMPINAN yang bisa menghapus data barang keluar
+// Penghapusan akan mengembalikan stok produk secara atomik
+router.delete(
+  '/:id',
+  verifyJWT,
+  checkRole(['SUPER_ADMIN', 'PIMPINAN']),
+  (req, res, next) => controller.delete(req, res, next)
+);
+
 export default router;

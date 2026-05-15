@@ -9,6 +9,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET || 'DUMMY',
 });
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 /**
  * Storage untuk Foto Produk
  */
@@ -32,7 +34,28 @@ const notaStorage = new CloudinaryStorage({
   } as any,
 });
 
-export const uploadProductPhoto = multer({ storage: productStorage });
-export const uploadNotaCloud = multer({ storage: notaStorage });
+const notaFileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
+  const allowed = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+  if (allowed.includes(file.mimetype)) cb(null, true);
+  else cb(new Error('Tipe file tidak diizinkan. Gunakan PDF, JPG, atau PNG'));
+};
+
+const photoFileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
+  const allowed = ['image/jpeg', 'image/jpg', 'image/png'];
+  if (allowed.includes(file.mimetype)) cb(null, true);
+  else cb(new Error('Hanya gambar JPG/PNG yang diizinkan'));
+};
+
+export const uploadProductPhoto = multer({
+  storage: productStorage,
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: photoFileFilter,
+});
+
+export const uploadNotaCloud = multer({
+  storage: notaStorage,
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: notaFileFilter,
+});
 
 export default cloudinary;

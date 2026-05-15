@@ -19,7 +19,7 @@ export const userService = {
     return response.data;
   },
   update: async (id: string, data: UserPayload) => {
-    const response = await api.put(`/users/${id}`, data);
+    const response = await api.patch(`/users/${id}`, data);
     return response.data;
   },
   delete: async (id: string) => {
