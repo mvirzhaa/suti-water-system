@@ -5,7 +5,8 @@ import { stockOutService } from '@/services/stock-out.service';
 import { productService } from '@/services/product.service';
 import { discountService } from '@/services/discount.service';
 import { agentService } from '@/services/agent.service';
-import { ArrowUpFromLine, Plus, Image as ImageIcon, Trash2, FileText } from 'lucide-react';
+import { ArrowUpFromLine, Plus, Image as ImageIcon, Trash2, FileText, Truck } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -45,6 +46,8 @@ export default function StockOutPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const LIMIT = 15;
+
+  const router = useRouter();
 
   const user = useAuthStore((state) => state.user);
   const canDelete = user?.role === 'SUPER_ADMIN' || user?.role === 'PIMPINAN';
@@ -304,10 +307,16 @@ export default function StockOutPage() {
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                           {item.notaUrl && (
-                            <a href={item.notaUrl} target="_blank" rel="noreferrer" style={{ backgroundColor: '#0CA5EA', color: 'white', padding: '0.25rem', borderRadius: '50%', display: 'flex' }}>
+                            <a href={item.notaUrl} target="_blank" rel="noreferrer" style={{ backgroundColor: '#0CA5EA', color: 'white', padding: '0.25rem', borderRadius: '50%', display: 'flex' }} title="Lihat Nota">
                               <ImageIcon size={14} />
                             </a>
                           )}
+                          <button style={{ backgroundColor: '#0CA5EA', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => router.push(`/dashboard/stock-out/surat-penagihan/${item.id}`)} title="Cetak Surat Penagihan">
+                            <FileText size={14} />
+                          </button>
+                          <button style={{ backgroundColor: '#22c55e', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => router.push(`/dashboard/stock-out/surat-jalan/${item.id}`)} title="Cetak Surat Jalan">
+                            <Truck size={14} />
+                          </button>
                           {canDelete && (
                             <button style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => handleDelete(item.id)} title="Hapus data barang keluar">
                               <Trash2 size={14} />

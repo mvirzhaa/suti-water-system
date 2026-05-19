@@ -10,6 +10,7 @@ const router = Router();
 const controller = new StockOutController();
 
 router.get('/', verifyJWT, (req, res, next) => controller.getAll(req, res, next));
+router.get('/:id', verifyJWT, (req, res, next) => controller.getById(req, res, next));
 
 router.post(
   '/',

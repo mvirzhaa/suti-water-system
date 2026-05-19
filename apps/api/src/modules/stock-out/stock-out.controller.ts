@@ -34,6 +34,15 @@ export class StockOutController {
     }
   }
 
+  async getById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const stockOut = await stockOutService.findById(req.params.id as string);
+      ApiResponse.success(res, stockOut, 'Berhasil mengambil detail barang keluar', 200);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
       await stockOutService.delete(req.user!.userId, req.params.id as string);

@@ -7,6 +7,11 @@ export const stockOutService = {
     return response.data;
   },
 
+  getById: async (id: string) => {
+    const response = await api.get(`/stock-out/${id}`);
+    return response.data;
+  },
+
   create: async (data: FormData) => {
     // Pakai FormData karena ada kemungkinan upload dokumen pengiriman
     const response = await api.post('/stock-out', data, {

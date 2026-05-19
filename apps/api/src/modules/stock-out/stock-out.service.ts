@@ -84,6 +84,24 @@ export class StockOutService {
     return { data, total };
   }
 
+  async findById(id: string) {
+    const stockOut = await prisma.stockOut.findUnique({
+      where: { id },
+      include: {
+        product: { select: { name: true, sku: true, unit: true } },
+        user: { select: { name: true } },
+        agent: { select: { name: true, address: true, phone: true, pic: true } },
+        discount: { select: { name: true, value: true, type: true } }
+      }
+    });
+
+    if (!stockOut) {
+      throw ApiError.notFound('Data barang keluar tidak ditemukan');
+    }
+
+    return stockOut;
+  }
+
   /**
    * Hapus record barang keluar dan kembalikan stok produk secara atomik
    * Hanya SUPER_ADMIN & PIMPINAN yang boleh menghapus (dijaga di level route)
