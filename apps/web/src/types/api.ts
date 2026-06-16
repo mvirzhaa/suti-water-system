@@ -63,7 +63,9 @@ export type StockInRecord = {
   quantity: number;
   pricePerUnit: number;
   totalCost: number;
+  size?: string | null;
   notaUrl?: string | null;
+  remainingStock?: number;
   product?: Pick<Product, 'sku' | 'name' | 'unit'>;
   suppl?: Pick<Supplier, 'name'>;
   supplier?: string | null;
@@ -76,9 +78,11 @@ export type StockOutRecord = {
   pricePerUnit: number;
   totalPrice: number;
   discountAmount: number;
+  size?: string | null;
   buyerName?: string | null;
   notes?: string | null;
   notaUrl?: string | null;
+  productStockSnapshot?: number;
   product?: Pick<Product, 'sku' | 'name'>;
   agent?: Pick<Agent, 'name'>;
   discount?: Pick<Discount, 'value'>;

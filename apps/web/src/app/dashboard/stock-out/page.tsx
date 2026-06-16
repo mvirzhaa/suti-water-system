@@ -13,6 +13,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuthStore } from '@/store/useAuthStore';
 import Swal from 'sweetalert2';
+import { WATER_SIZES } from '@/lib/water-sizes';
 import type { Agent, Discount, Product, StockOutRecord } from '@/types/api';
 
 // Format currency
@@ -30,6 +31,7 @@ const stockOutSchema = z.object({
   quantity: z.number().min(1, 'Kuantitas minimal 1'),
   pricePerUnit: z.number().min(0, 'Harga tidak boleh negatif'),
   discountId: z.string().optional(),
+  size: z.enum(WATER_SIZES).optional(),
   nota: z.any().optional(),
 });
 type StockOutFormData = z.infer<typeof stockOutSchema>;
@@ -54,6 +56,17 @@ export default function StockOutPage() {
   
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [previewNotaUrl, setPreviewNotaUrl] = useState<string | null>(null);
+  const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFileUrl(URL.createObjectURL(file));
+    } else {
+      setSelectedFileUrl(null);
+    }
+  };
 
   // Ref untuk file input nota
   const notaInputRef = useRef<HTMLInputElement>(null);
@@ -185,6 +198,7 @@ export default function StockOutPage() {
       
       if (formData.buyerAddress) payload.append('notes', `Alamat: ${formData.buyerAddress}`);
       if (formData.discountId) payload.append('discountId', formData.discountId);
+      if (formData.size) payload.append('size', formData.size);
       
       const fileInput = notaInputRef.current;
       if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -195,6 +209,7 @@ export default function StockOutPage() {
       
       setIsAddModalOpen(false);
       reset();
+      setSelectedFileUrl(null);
       if (notaInputRef.current) notaInputRef.current.value = '';
       setPage(1);
       await fetchData(1);
@@ -274,20 +289,22 @@ export default function StockOutPage() {
                 <th>Kode Barang</th>
                 <th>Tanggal Keluar</th>
                 <th>Barang</th>
+                <th>Ukuran</th>
                 <th>Nama Agen/Pembeli</th>
                 <th>Alamat Pembeli</th>
                 <th>Harga</th>
                 <th>Diskon</th>
                 <th>Jumlah</th>
                 <th>Total Harga</th>
+                <th>Sisa Stok</th>
                 <th style={{ textAlign: 'center' }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={11} style={{ textAlign: 'center' }}>Memuat data...</td></tr>
+                <tr><td colSpan={13} style={{ textAlign: 'center' }}>Memuat data...</td></tr>
               ) : data.length === 0 ? (
-                <tr><td colSpan={11} style={{ textAlign: 'center' }}>Belum ada data barang keluar</td></tr>
+                <tr><td colSpan={13} style={{ textAlign: 'center' }}>Belum ada data barang keluar</td></tr>
               ) : (
                 data.map((item, index) => {
                   const alamat = item.notes?.replace('Alamat: ', '') || '-';
@@ -298,18 +315,22 @@ export default function StockOutPage() {
                       <td>{item.product?.sku || '-'}</td>
                       <td>{new Date(item.exitDate).toLocaleDateString('id-ID')}</td>
                       <td>{item.product?.name}</td>
+                      <td>{item.size || '-'}</td>
                       <td>{item.agent?.name || item.buyerName || '-'}</td>
                       <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{alamat}</td>
                       <td>{formatRupiah(item.pricePerUnit)}</td>
                       <td>{item.discountAmount > 0 ? `${formatRupiah(item.discountAmount)} ${diskonStr}` : 'Rp. -'}</td>
                       <td>{item.quantity}</td>
                       <td>{formatRupiah(item.totalPrice)}</td>
+                      <td style={{ fontWeight: 600 }}>{item.productStockSnapshot ?? '-'}</td>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                          {item.notaUrl && (
-                            <a href={item.notaUrl} target="_blank" rel="noreferrer" style={{ backgroundColor: '#0CA5EA', color: 'white', padding: '0.25rem', borderRadius: '50%', display: 'flex' }} title="Lihat Nota">
+                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
+                          {item.notaUrl ? (
+                            <button onClick={() => setPreviewNotaUrl(item.notaUrl!)} style={{ backgroundColor: '#0CA5EA', color: 'white', padding: '0.25rem', border: 'none', borderRadius: '50%', display: 'flex', cursor: 'pointer' }} title="Lihat Nota">
                               <ImageIcon size={14} />
-                            </a>
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Tidak ada nota</span>
                           )}
                           <button style={{ backgroundColor: '#0CA5EA', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => router.push(`/dashboard/stock-out/surat-penagihan/${item.id}`)} title="Cetak Surat Penagihan">
                             <FileText size={14} />
@@ -333,7 +354,7 @@ export default function StockOutPage() {
             {!loading && data.length > 0 && (
               <tfoot>
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'right', fontWeight: 600, borderTop: '2px solid #e2e8f0' }}>Total Keseluruhan :</td>
+                  <td colSpan={9} style={{ textAlign: 'right', fontWeight: 600, borderTop: '2px solid #e2e8f0' }}>Total Keseluruhan :</td>
                   <td style={{ fontWeight: 700, borderTop: '2px solid #e2e8f0' }}>{totalKeseluruhanUnit.toLocaleString('id-ID')}</td>
                   <td colSpan={2} style={{ fontWeight: 700, borderTop: '2px solid #e2e8f0' }}>{formatRupiah(totalKeseluruhanHarga)}</td>
                 </tr>
@@ -446,6 +467,17 @@ export default function StockOutPage() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Ukuran</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                  {WATER_SIZES.map((s) => (
+                    <label key={s} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+                      <input type="radio" value={s} {...register('size')} /> {s}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
                 <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Nama Agen</label>
                 <div>
                   <select {...register('agentId')} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: 'white' }}>
@@ -465,7 +497,10 @@ export default function StockOutPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
                 <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Harga Jual</label>
-                <input type="text" value={formatRupiah(pricePerUnit)} readOnly style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: '#f1f5f9' }} />
+                <div>
+                  <input type="number" {...register('pricePerUnit', { valueAsNumber: true })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: 'white' }} />
+                  {errors.pricePerUnit && <span style={{ color: 'red', fontSize: '0.75rem' }}>{errors.pricePerUnit.message}</span>}
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
@@ -497,9 +532,16 @@ export default function StockOutPage() {
                 <input type="text" value={estimatedTotalStock} readOnly style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: '#f1f5f9', fontWeight: 'bold', color: estimatedTotalStock < 0 ? 'red' : 'black' }} />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
-                <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Upload Nota</label>
-                <input ref={notaInputRef} type="file" accept="image/*,application/pdf" style={{ fontSize: '0.875rem' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'flex-start', gap: '1rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600, paddingTop: '0.5rem' }}>Upload Nota</label>
+                <div>
+                  <input ref={notaInputRef} type="file" accept="image/*,application/pdf" style={{ fontSize: '0.875rem' }} onChange={handleFileChange} />
+                  {selectedFileUrl && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <img src={selectedFileUrl} alt="Preview" style={{ maxWidth: '100%', maxHeight: '150px', objectFit: 'contain', border: '1px solid #cbd5e1', borderRadius: '0.25rem' }} />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
@@ -509,6 +551,16 @@ export default function StockOutPage() {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Nota Preview Modal */}
+      {previewNotaUrl && (
+        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }} onClick={() => setPreviewNotaUrl(null)}>
+          <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setPreviewNotaUrl(null)} style={{ position: 'absolute', top: '-1rem', right: '-1rem', background: 'white', color: 'black', border: 'none', borderRadius: '50%', width: '30px', height: '30px', fontSize: '1.2rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 101 }}>&times;</button>
+            <img src={previewNotaUrl} alt="Preview Nota" style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '0.5rem', backgroundColor: 'white' }} />
           </div>
         </div>
       )}

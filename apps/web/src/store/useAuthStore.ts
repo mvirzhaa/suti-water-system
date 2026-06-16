@@ -21,6 +21,7 @@ interface AuthState {
   setAuth: (user: User, accessToken: string) => void;
   setAccessToken: (token: string) => void;
   updateUser: (data: Partial<User>) => void;
+  clearAuth: () => void; // Reset state lokal tanpa API call (aman dipakai di interceptor)
   logout: () => void;
   fetchProfile: () => Promise<void>;
 }
@@ -40,6 +41,9 @@ export const useAuthStore = create<AuthState>()(
         
       updateUser: (data) => 
         set((state) => ({ user: state.user ? { ...state.user, ...data } : null })),
+
+      clearAuth: () =>
+        set({ user: null, accessToken: null, isAuthenticated: false }),
 
       logout: async () => {
         try {

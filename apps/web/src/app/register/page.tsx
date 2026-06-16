@@ -63,17 +63,7 @@ export default function RegisterPage() {
         {/* Right Side: Form */}
         <div className="auth-form-side">
           <div className="auth-logo">
-            <svg width="80" height="100" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M50 0C50 0 10 50 10 80C10 102.091 27.9086 120 50 120C72.0914 120 90 102.091 90 80C90 50 50 0 50 0Z" fill="url(#paint0_linear)"/>
-              <path d="M25 85L45 60L55 75L75 45L90 80H10L25 85Z" fill="#84CC16"/>
-              <text x="50" y="100" fill="white" fontSize="28" fontWeight="bold" fontFamily="Poppins" textAnchor="middle" letterSpacing="1">Suti</text>
-              <defs>
-                <linearGradient id="paint0_linear" x1="50" y1="0" x2="50" y2="120" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#0CA5EA"/>
-                  <stop offset="1" stopColor="#006FB2"/>
-                </linearGradient>
-              </defs>
-            </svg>
+            <img src="/images/logo-login2.png" alt="Suti Water Logo" width="100" height="120" style={{ objectFit: 'contain' }} />
           </div>
 
           <h1 className="auth-title" style={{ marginBottom: '1.5rem' }}>Buat akun baru</h1>

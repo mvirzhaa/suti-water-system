@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { WATER_SIZES } from '../../constants/waterSizes';
 
 export const createStockInSchema = z.object({
   productId: z.string({ error: 'Produk wajib dipilih' }).uuid('Product ID tidak valid'),
@@ -8,6 +9,7 @@ export const createStockInSchema = z.object({
   supplierId: z.string().uuid('Supplier ID tidak valid').optional(),
   entryDate: z.string({ error: 'Tanggal masuk wajib diisi' }).regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal: YYYY-MM-DD'),
   notes: z.string().optional(),
+  size: z.enum(WATER_SIZES).optional(),
 });
 
 export const updateStockInSchema = createStockInSchema.partial();

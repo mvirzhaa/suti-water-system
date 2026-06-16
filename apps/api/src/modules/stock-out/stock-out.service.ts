@@ -8,7 +8,7 @@ export class StockOutService {
    * Mencatat barang keluar (Penjualan/Pengeluaran Stok)
    */
   async create(userId: string, dto: CreateStockOutDto, file?: any) {
-    const { productId, quantity, pricePerUnit, discountId, agentId, buyerName, exitDate, notes } = dto;
+    const { productId, quantity, pricePerUnit, discountId, agentId, buyerName, exitDate, notes, size } = dto;
 
     const stockOut = await prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({
@@ -33,13 +33,31 @@ export class StockOutService {
 
       const totalPrice = (Number(pricePerUnit) * quantity) - discountAmount;
 
+      let qtyToDeplete = quantity;
+      const availableStockIns = await tx.stockIn.findMany({
+        where: { productId, remainingStock: { gt: 0 } },
+        orderBy: { entryDate: 'asc' }
+      });
+
+      for (const stIn of availableStockIns) {
+        if (qtyToDeplete <= 0) break;
+        const depleteAmount = Math.min(qtyToDeplete, stIn.remainingStock);
+        await tx.stockIn.update({
+          where: { id: stIn.id },
+          data: { remainingStock: stIn.remainingStock - depleteAmount }
+        });
+        qtyToDeplete -= depleteAmount;
+      }
+
       const stockOut = await tx.stockOut.create({
         data: {
           productId, userId, discountId, agentId, quantity, pricePerUnit,
           discountAmount, totalPrice, buyerName,
           exitDate: new Date(exitDate),
           notaUrl: file?.path || file?.url,
-          notes
+          notes,
+          size,
+          productStockSnapshot: product.stock - quantity
         },
         include: { product: true }
       });
@@ -119,6 +137,25 @@ export class StockOutService {
         where: { id: stockOut.productId },
         data: { stock: { increment: stockOut.quantity } },
       });
+
+      let qtyToRestore = stockOut.quantity;
+      const recentStockIns = await tx.stockIn.findMany({
+        where: { productId: stockOut.productId },
+        orderBy: { entryDate: 'desc' }
+      });
+
+      for (const stIn of recentStockIns) {
+        if (qtyToRestore <= 0) break;
+        const spaceLeft = stIn.quantity - stIn.remainingStock;
+        if (spaceLeft > 0) {
+          const restoreAmount = Math.min(qtyToRestore, spaceLeft);
+          await tx.stockIn.update({
+            where: { id: stIn.id },
+            data: { remainingStock: stIn.remainingStock + restoreAmount }
+          });
+          qtyToRestore -= restoreAmount;
+        }
+      }
 
       await tx.stockOut.delete({ where: { id } });
 

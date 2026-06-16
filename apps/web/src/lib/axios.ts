@@ -31,8 +31,13 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Jika error 401 dan bukan sedang nge-hit endpoint refresh token
-    if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== '/auth/refresh') {
+    // Jika error 401 dan bukan sedang nge-hit endpoint refresh/logout
+    // (hindari infinite loop: logout → 401 → refresh → gagal → logout → ...)
+    const isRefreshOrLogout =
+      originalRequest.url === '/auth/refresh' ||
+      originalRequest.url === '/auth/logout';
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isRefreshOrLogout) {
       originalRequest._retry = true;
 
       try {
@@ -52,9 +57,12 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Jika refresh token juga gagal (expired), force logout
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
+        // Jika refresh token juga gagal (expired), bersihkan state lokal
+        // Jangan panggil logout() di sini karena itu akan bikin request baru → infinite loop
+        useAuthStore.getState().clearAuth();
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       }
     }

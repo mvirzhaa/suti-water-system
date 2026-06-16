@@ -11,6 +11,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuthStore } from '@/store/useAuthStore';
 import Swal from 'sweetalert2';
+import { WATER_SIZES } from '@/lib/water-sizes';
 import type { Product, StockInRecord, Supplier } from '@/types/api';
 
 // Format currency
@@ -25,6 +26,7 @@ const stockInSchema = z.object({
   productId: z.string().min(1, 'Barang wajib dipilih'),
   quantity: z.number().min(1, 'Kuantitas minimal 1'),
   pricePerUnit: z.number().min(0, 'Harga tidak boleh negatif'),
+  size: z.enum(WATER_SIZES).optional(),
   nota: z.any().optional(), // File handle
 });
 type StockInFormData = z.infer<typeof stockInSchema>;
@@ -46,6 +48,17 @@ export default function StockInPage() {
   
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [previewNotaUrl, setPreviewNotaUrl] = useState<string | null>(null);
+  const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFileUrl(URL.createObjectURL(file));
+    } else {
+      setSelectedFileUrl(null);
+    }
+  };
 
   // Ref untuk file input nota
   const notaInputRef = useRef<HTMLInputElement>(null);
@@ -120,6 +133,7 @@ export default function StockInPage() {
       payload.append('pricePerUnit', formData.pricePerUnit.toString());
       payload.append('entryDate', formData.entryDate);
       if (formData.supplierId) payload.append('supplierId', formData.supplierId);
+      if (formData.size) payload.append('size', formData.size);
       
       const fileInput = notaInputRef.current;
       if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -130,6 +144,7 @@ export default function StockInPage() {
       
       setIsAddModalOpen(false);
       reset();
+      setSelectedFileUrl(null);
       if (notaInputRef.current) notaInputRef.current.value = '';
       // Setelah tambah data baru, kembali ke halaman 1
       setPage(1);
@@ -212,18 +227,20 @@ export default function StockInPage() {
                 <th>Tanggal Masuk</th>
                 <th>Pemasok</th>
                 <th>Barang</th>
+                <th>Ukuran</th>
                 <th>Satuan</th>
                 <th>Harga</th>
                 <th>Jumlah</th>
                 <th>Total Harga</th>
+                <th>Sisa Stok Batch</th>
                 <th style={{ textAlign: 'center' }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} style={{ textAlign: 'center' }}>Memuat data...</td></tr>
+                <tr><td colSpan={12} style={{ textAlign: 'center' }}>Memuat data...</td></tr>
               ) : data.length === 0 ? (
-                <tr><td colSpan={10} style={{ textAlign: 'center' }}>Belum ada data barang masuk</td></tr>
+                <tr><td colSpan={12} style={{ textAlign: 'center' }}>Belum ada data barang masuk</td></tr>
               ) : (
                 data.map((item, index) => (
                   <tr key={item.id}>
@@ -232,16 +249,20 @@ export default function StockInPage() {
                     <td>{new Date(item.entryDate).toLocaleDateString('id-ID')}</td>
                     <td>{item.suppl?.name || item.supplier || '-'}</td>
                     <td>{item.product?.name}</td>
+                    <td>{item.size || '-'}</td>
                     <td>{item.product?.unit}</td>
                     <td>{formatRupiah(item.pricePerUnit)}</td>
                     <td>{item.quantity}</td>
                     <td>{formatRupiah(item.totalCost)}</td>
+                    <td style={{ fontWeight: 600 }}>{item.remainingStock ?? '-'}</td>
                     <td>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                        {item.notaUrl && (
-                          <a href={item.notaUrl} target="_blank" rel="noreferrer" style={{ backgroundColor: '#0CA5EA', color: 'white', padding: '0.25rem', borderRadius: '50%', display: 'flex' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
+                        {item.notaUrl ? (
+                          <button onClick={() => setPreviewNotaUrl(item.notaUrl!)} style={{ backgroundColor: '#0CA5EA', color: 'white', padding: '0.25rem', border: 'none', borderRadius: '50%', display: 'flex', cursor: 'pointer' }} title="Lihat Nota">
                             <ImageIcon size={14} />
-                          </a>
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Tidak ada nota</span>
                         )}
                         {canDelete && (
                           <button style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => handleDelete(item.id)} title="Hapus data barang masuk">
@@ -258,7 +279,7 @@ export default function StockInPage() {
             {!loading && data.length > 0 && (
               <tfoot>
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'right', fontWeight: 600, borderTop: '2px solid #e2e8f0' }}>Total Keseluruhan :</td>
+                  <td colSpan={8} style={{ textAlign: 'right', fontWeight: 600, borderTop: '2px solid #e2e8f0' }}>Total Keseluruhan :</td>
                   <td style={{ fontWeight: 700, borderTop: '2px solid #e2e8f0' }}>{totalKeseluruhanUnit.toLocaleString('id-ID')}</td>
                   <td colSpan={2} style={{ fontWeight: 700, borderTop: '2px solid #e2e8f0' }}>{formatRupiah(totalKeseluruhanHarga)}</td>
                 </tr>
@@ -369,6 +390,17 @@ export default function StockInPage() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', alignItems: 'center', gap: '1rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Ukuran</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                  {WATER_SIZES.map((s) => (
+                    <label key={s} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+                      <input type="radio" value={s} {...register('size')} /> {s}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', alignItems: 'center', gap: '1rem' }}>
                 <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Satuan</label>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem' }}>
@@ -414,9 +446,16 @@ export default function StockInPage() {
                 <input type="text" value={estimatedTotalStock} readOnly style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: '#f1f5f9' }} />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', alignItems: 'center', gap: '1rem' }}>
-                <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Upload Nota</label>
-                <input ref={notaInputRef} type="file" accept="image/*,application/pdf" style={{ fontSize: '0.875rem' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', alignItems: 'flex-start', gap: '1rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600, paddingTop: '0.5rem' }}>Upload Nota</label>
+                <div>
+                  <input ref={notaInputRef} type="file" accept="image/*,application/pdf" style={{ fontSize: '0.875rem' }} onChange={handleFileChange} />
+                  {selectedFileUrl && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <img src={selectedFileUrl} alt="Preview" style={{ maxWidth: '100%', maxHeight: '150px', objectFit: 'contain', border: '1px solid #cbd5e1', borderRadius: '0.25rem' }} />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
@@ -426,6 +465,16 @@ export default function StockInPage() {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Nota Preview Modal */}
+      {previewNotaUrl && (
+        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }} onClick={() => setPreviewNotaUrl(null)}>
+          <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setPreviewNotaUrl(null)} style={{ position: 'absolute', top: '-1rem', right: '-1rem', background: 'white', color: 'black', border: 'none', borderRadius: '50%', width: '30px', height: '30px', fontSize: '1.2rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 101 }}>&times;</button>
+            <img src={previewNotaUrl} alt="Preview Nota" style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '0.5rem', backgroundColor: 'white' }} />
           </div>
         </div>
       )}

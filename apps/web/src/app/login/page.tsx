@@ -55,7 +55,7 @@ export default function LoginPage() {
         {/* Right Side: Form */}
         <div className="auth-form-side">
           <div className="auth-logo">
-            <img src="/images/logo-login2.png" alt="Suti Water Logo" width="100" height="120" />
+            <img src="/images/logo-login2.png" alt="Suti Water Logo" width="100" height="120" style={{ objectFit: 'contain' }} />
           </div>
 
           <h1 className="auth-title">Selamat Datang</h1>

@@ -5,6 +5,7 @@ import { CalendarDays, ChevronDown, FileDown, Printer } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { stockInService } from '@/services/stock-in.service';
 import { stockOutService } from '@/services/stock-out.service';
+import { SIZE_ALL, SIZE_OPTIONS, type SizeFilter } from '@/lib/water-sizes';
 import type { StockInRecord, StockOutRecord } from '@/types/api';
 
 type ReportType = 'stock-in' | 'stock-out';
@@ -147,6 +148,7 @@ const buildStockInRows = (rows: StockInRecord[]) => {
             <th>Tanggal Masuk</th>
             <th>Pemasok</th>
             <th>Nama Barang</th>
+            <th>Ukuran</th>
             <th>Satuan</th>
             <th>Harga</th>
             <th>Jumlah</th>
@@ -161,6 +163,7 @@ const buildStockInRows = (rows: StockInRecord[]) => {
               <td>${formatDate(item.entryDate, '-')}</td>
               <td>${escapeHtml(item.suppl?.name || item.supplier)}</td>
               <td>${escapeHtml(item.product?.name)}</td>
+              <td>${escapeHtml(item.size)}</td>
               <td>${escapeHtml(item.product?.unit)}</td>
               <td>${formatCurrency(Number(item.pricePerUnit || 0))}</td>
               <td>${Number(item.quantity || 0).toLocaleString('id-ID')}</td>
@@ -170,7 +173,7 @@ const buildStockInRows = (rows: StockInRecord[]) => {
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="7" class="total-label">Total Keseluruhan:</td>
+            <td colspan="8" class="total-label">Total Keseluruhan:</td>
             <td>${totalQty.toLocaleString('id-ID')}</td>
             <td>${formatCurrency(totalAmount)}</td>
           </tr>
@@ -195,6 +198,7 @@ const buildStockOutRows = (rows: StockOutRecord[]) => {
             <th>Kode Barang</th>
             <th>Tanggal Keluar</th>
             <th>Barang</th>
+            <th>Ukuran</th>
             <th>Nama Agen/Pembeli</th>
             <th>Alamat Pembeli</th>
             <th>Harga</th>
@@ -212,6 +216,7 @@ const buildStockOutRows = (rows: StockOutRecord[]) => {
                 <td>${escapeHtml(item.product?.sku)}</td>
                 <td>${formatDate(item.exitDate, '-')}</td>
                 <td>${escapeHtml(item.product?.name)}</td>
+                <td>${escapeHtml(item.size)}</td>
                 <td>${escapeHtml(item.agent?.name || item.buyerName)}</td>
                 <td>${escapeHtml(address)}</td>
                 <td>${formatCurrency(Number(item.pricePerUnit || 0))}</td>
@@ -224,7 +229,7 @@ const buildStockOutRows = (rows: StockOutRecord[]) => {
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="8" class="total-label">Total Keseluruhan Harga:</td>
+            <td colspan="9" class="total-label">Total Keseluruhan Harga:</td>
             <td>${totalQty.toLocaleString('id-ID')}</td>
             <td>${formatCurrency(totalAmount)}</td>
           </tr>
@@ -234,8 +239,68 @@ const buildStockOutRows = (rows: StockOutRecord[]) => {
   };
 };
 
-const buildPrintDocument = (type: ReportType, range: DateRange, table: string) => {
+type SizeGroup = { size: string; qty: number; value: number; count: number };
+
+// Rekap dikelompokkan per ukuran (untuk tampilan "Keseluruhan").
+const summarizeBySize = (
+  rows: Array<{ size?: string | null; quantity?: number }>,
+  getValue: (row: any) => number,
+): SizeGroup[] => {
+  const map = new Map<string, SizeGroup>();
+  for (const row of rows) {
+    const key = row.size || 'Tanpa ukuran';
+    const existing = map.get(key) ?? { size: key, qty: 0, value: 0, count: 0 };
+    existing.qty += Number(row.quantity || 0);
+    existing.value += getValue(row);
+    existing.count += 1;
+    map.set(key, existing);
+  }
+  return Array.from(map.values()).sort((a, b) => a.size.localeCompare(b.size));
+};
+
+const buildSizeBreakdownTable = (groups: SizeGroup[]) => {
+  const tQty = groups.reduce((sum, g) => sum + g.qty, 0);
+  const tVal = groups.reduce((sum, g) => sum + g.value, 0);
+  const tCnt = groups.reduce((sum, g) => sum + g.count, 0);
+
+  return `
+    <h3 style="margin:22px 0 10px;font-size:16px;color:#006fb2;">Rekap per Ukuran</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Ukuran</th>
+          <th>Jumlah</th>
+          <th>Transaksi</th>
+          <th>Total Nilai</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${groups.map((g) => `
+          <tr>
+            <td>${escapeHtml(g.size)}</td>
+            <td>${g.qty.toLocaleString('id-ID')}</td>
+            <td>${g.count.toLocaleString('id-ID')}</td>
+            <td>${formatCurrency(g.value)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td class="total-label">Total</td>
+          <td>${tQty.toLocaleString('id-ID')}</td>
+          <td>${tCnt.toLocaleString('id-ID')}</td>
+          <td>${formatCurrency(tVal)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  `;
+};
+
+const buildPrintDocument = (type: ReportType, range: DateRange, table: string, sizeLabel?: string) => {
   const title = getReportTitle(type);
+  const periodLine = sizeLabel
+    ? `Periode ${formatDate(range.start)} - ${formatDate(range.end)} · Ukuran: ${escapeHtml(sizeLabel)}`
+    : `Periode ${formatDate(range.start)} - ${formatDate(range.end)}`;
 
   return `
     <!doctype html>
@@ -324,7 +389,7 @@ const buildPrintDocument = (type: ReportType, range: DateRange, table: string) =
             <div class="title">
               <h1>${title}</h1>
               <h2>Air Mineral Dalam Kemasan Suti Water</h2>
-              <p>Periode ${formatDate(range.start)} - ${formatDate(range.end)}</p>
+              <p>${periodLine}</p>
             </div>
             ${bksppiMark}
           </header>
@@ -346,6 +411,9 @@ export default function ReportsPage() {
   const [customRange, setCustomRange] = useState<DateRange>(() => getPresetRange('thisMonth'));
   const [isPeriodOpen, setIsPeriodOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sizeFilter, setSizeFilter] = useState<SizeFilter>(SIZE_ALL);
+
+  const sizeLabel = sizeFilter === SIZE_ALL ? undefined : sizeFilter;
 
   const selectedPeriod = periodOptions.find((item) => item.key === periodKey) ?? periodOptions[0];
   const activeRange = useMemo(() => {
@@ -397,7 +465,9 @@ export default function ReportsPage() {
 
       if (reportType === 'stock-in') {
         const response = await stockInService.getAll({ limit: 1000 });
-        const rows = (response.data as StockInRecord[]).filter((item) => isWithinRange(item.entryDate, activeRange));
+        const rows = (response.data as StockInRecord[])
+          .filter((item) => isWithinRange(item.entryDate, activeRange))
+          .filter((item) => sizeFilter === SIZE_ALL || item.size === sizeFilter);
 
         if (rows.length === 0) {
           printWindow.close();
@@ -406,14 +476,20 @@ export default function ReportsPage() {
         }
 
         const report = buildStockInRows(rows);
+        // Saat "Keseluruhan", sertakan rekap per ukuran di bawah tabel detail.
+        const breakdown = sizeFilter === SIZE_ALL
+          ? buildSizeBreakdownTable(summarizeBySize(rows, (r) => Number(r.totalCost || 0)))
+          : '';
         printWindow.document.open();
-        printWindow.document.write(buildPrintDocument(reportType, activeRange, report.table));
+        printWindow.document.write(buildPrintDocument(reportType, activeRange, report.table + breakdown, sizeLabel));
         printWindow.document.close();
         return;
       }
 
       const response = await stockOutService.getAll({ limit: 1000 });
-      const rows = (response.data as StockOutRecord[]).filter((item) => isWithinRange(item.exitDate, activeRange));
+      const rows = (response.data as StockOutRecord[])
+        .filter((item) => isWithinRange(item.exitDate, activeRange))
+        .filter((item) => sizeFilter === SIZE_ALL || item.size === sizeFilter);
 
       if (rows.length === 0) {
         printWindow.close();
@@ -422,8 +498,11 @@ export default function ReportsPage() {
       }
 
       const report = buildStockOutRows(rows);
+      const breakdown = sizeFilter === SIZE_ALL
+        ? buildSizeBreakdownTable(summarizeBySize(rows, (r) => Number(r.totalPrice || 0)))
+        : '';
       printWindow.document.open();
-      printWindow.document.write(buildPrintDocument(reportType, activeRange, report.table));
+      printWindow.document.write(buildPrintDocument(reportType, activeRange, report.table + breakdown, sizeLabel));
       printWindow.document.close();
     } catch (error) {
       console.error('Error printing report', error);
@@ -466,6 +545,23 @@ export default function ReportsPage() {
                 />
                 <span>Cetak Laporan Barang Keluar</span>
               </label>
+            </div>
+          </div>
+
+          <div className="report-field">
+            <label>Ukuran</label>
+            <div className="report-radio-group">
+              {SIZE_OPTIONS.map((option) => (
+                <label key={option.value} className="report-radio">
+                  <input
+                    type="radio"
+                    name="sizeFilter"
+                    checked={sizeFilter === option.value}
+                    onChange={() => setSizeFilter(option.value)}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
             </div>
           </div>
 

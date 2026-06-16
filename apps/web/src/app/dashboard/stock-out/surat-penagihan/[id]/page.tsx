@@ -114,7 +114,7 @@ export default function SuratPenagihanPage() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid #006FB2', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
           <div style={{ marginRight: '1rem' }}>
-            <img src="/images/logo-login2.png" alt="Suti Water Logo" style={{ width: '80px', height: 'auto' }} />
+            <img src="/images/logo-login2.png" alt="Suti Water Logo" style={{ width: '80px', height: '100px', objectFit: 'contain' }} />
           </div>
           <div style={{ flex: 1, textAlign: 'center', color: '#006FB2' }}>
             <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 'bold', letterSpacing: '2px' }}>SUTI WATER</h1>

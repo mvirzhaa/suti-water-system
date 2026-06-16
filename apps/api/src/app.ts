@@ -27,6 +27,7 @@ import dashboardRoutes from './modules/dashboard/dashboard.route';
 import suppliersRoutes from './modules/suppliers/suppliers.routes';
 import agentsRoutes from './modules/agents/agents.routes';
 import usersRoutes from './modules/users/users.routes';
+import refrigeratorRoutes from './modules/refrigerators/refrigerator.routes';
 
 import './config/passport'; // Inisialisasi passport strategy
 
@@ -86,6 +87,7 @@ app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/suppliers', suppliersRoutes);
 app.use('/api/v1/agents', agentsRoutes);
 app.use('/api/v1/users', usersRoutes);
+app.use('/api/v1/refrigerators', refrigeratorRoutes);
 
 // ==========================================
 // 404 HANDLER

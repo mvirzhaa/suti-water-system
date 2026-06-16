@@ -52,6 +52,10 @@ model User {
   auditLogs        AuditLog[]
   productsCreated  Product[]
 
+  refrigeratorsCreated Refrigerator[]             @relation("RefrigeratorCreatedBy")
+  refrigeratorFills    RefrigeratorFill[]
+  refrigeratorReports  RefrigeratorWeeklyReport[]
+
   @@index([email])
   @@index([role])
   @@map("users")
@@ -120,6 +124,7 @@ model Product {
   stockIns         StockIn[]
   stockOuts        StockOut[]
   discountProducts DiscountProduct[]
+  refrigeratorFills RefrigeratorFill[]
 
   @@index([categoryId])
   @@index([sku])
@@ -141,6 +146,8 @@ model StockIn {
   notaFilename String?  @map("nota_filename") @db.VarChar(255)
   notaSize     Int?     @map("nota_size")
   notes        String?
+  size         String?  @map("size") @db.VarChar(20) // ukuran kemasan: "240ml" … "Galon" (null = lama/tak berukuran)
+  remainingStock Int    @default(0) @map("remaining_stock")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -151,6 +158,7 @@ model StockIn {
   @@index([productId])
   @@index([userId])
   @@index([entryDate(sort: Desc)])
+  @@index([size])
   @@map("stock_in")
 }
 
@@ -170,6 +178,8 @@ model StockOut {
   notaFilename   String?  @map("nota_filename") @db.VarChar(255)
   notaSize       Int?     @map("nota_size")
   notes          String?
+  size           String?  @map("size") @db.VarChar(20) // ukuran kemasan: "240ml" … "Galon" (null = lama/tak berukuran)
+  productStockSnapshot Int @default(0) @map("product_stock_snapshot")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -181,6 +191,7 @@ model StockOut {
   @@index([productId])
   @@index([userId])
   @@index([exitDate(sort: Desc)])
+  @@index([size])
   @@map("stock_out")
 }
 
@@ -256,4 +267,121 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([createdAt(sort: Desc)])
   @@map("audit_logs")
+}
+
+// ==========================================
+// FITUR "KULKAS SUTI"
+// ==========================================
+
+/// Master data kulkas (satu record = satu "kartu" di halaman Kulkas).
+/// Contoh: "Kulkas Masjid", "Kulkas Teknik", "Kulkas FIKES", dst.
+model Refrigerator {
+  id          String    @id @default(uuid())
+  name        String    @db.VarChar(150) // Nama kulkas yang tampil di kartu
+  location    String?   @db.VarChar(150) // Lokasi/fakultas, mis. "Fakultas Teknik"
+  code        String?   @unique @db.VarChar(50) // Kode pendek opsional (mis. "TEK", "MSJ")
+  description String?
+  imageUrl    String?   @map("image_url")
+  isActive    Boolean   @default(true) @map("is_active")
+  // Apakah kulkas ini memakai sistem bagi hasil dengan instansi lain.
+  profitSharingEnabled Boolean @default(false) @map("profit_sharing_enabled")
+  createdBy   String?   @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at") // Soft delete — mengikuti pola tabel products
+
+  creator       User?                      @relation("RefrigeratorCreatedBy", fields: [createdBy], references: [id])
+  fills         RefrigeratorFill[]
+  shares        RefrigeratorShare[]
+  weeklyReports RefrigeratorWeeklyReport[]
+
+  @@index([isActive])
+  @@index([name])
+  @@map("refrigerators")
+}
+
+/// Transaksi pengisian kulkas harian ("barang keluar buat kulkas").
+/// Satu record = satu kali isi kulkas pada tanggal tertentu.
+model RefrigeratorFill {
+  id             String   @id @default(uuid())
+  refrigeratorId String   @map("refrigerator_id")
+  productId      String?  @map("product_id") // Opsional: tautan ke katalog produk (untuk integrasi stok FIFO ke depan)
+  userId         String   @map("user_id")
+  fillDate       DateTime @map("fill_date") @db.Date
+
+  boxCount       Int     @map("box_count") // Jumlah kardus yang diisi
+  bottlesPerBox  Int     @default(0) @map("bottles_per_box") // Botol per kardus (untuk rekonsiliasi; 0 = tidak dipakai)
+  pricePerBox    Decimal @map("price_per_box") @db.Decimal(12, 2) // Harga/modal per kardus
+  pricePerBottle Decimal @map("price_per_bottle") @db.Decimal(12, 2) // Harga jual per botol
+
+  // Kolom turunan (dihitung di service, disimpan agar laporan cepat & konsisten)
+  totalBottles Int     @default(0) @map("total_bottles") // boxCount * bottlesPerBox
+  totalCost    Decimal @map("total_cost") @db.Decimal(14, 2) // boxCount * pricePerBox (nilai modal terisi)
+
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  refrigerator Refrigerator @relation(fields: [refrigeratorId], references: [id])
+  product      Product?     @relation(fields: [productId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([refrigeratorId])
+  @@index([productId])
+  @@index([fillDate(sort: Desc)])
+  @@map("refrigerator_fills")
+}
+
+/// Konfigurasi bagi hasil per kulkas: daftar instansi + persentase.
+/// Total persentase seluruh instansi harus 100 (divalidasi di service/schema).
+model RefrigeratorShare {
+  id             String   @id @default(uuid())
+  refrigeratorId String   @map("refrigerator_id")
+  instansiName   String   @map("instansi_name") @db.VarChar(150)
+  percentage     Decimal  @db.Decimal(5, 2) // mis. 60.00 / 40.00 (dinamis sesuai kesepakatan)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  refrigerator Refrigerator @relation(fields: [refrigeratorId], references: [id], onDelete: Cascade)
+
+  @@index([refrigeratorId])
+  @@map("refrigerator_shares")
+}
+
+/// Rekap uang pekanan per kulkas (laba bersih dibagi ke tiap instansi).
+/// actualRevenue diinput manual; modalCost dihitung otomatis dari pengisian.
+model RefrigeratorWeeklyReport {
+  id             String   @id @default(uuid())
+  refrigeratorId String   @map("refrigerator_id")
+  userId         String   @map("user_id")
+  periodStart    DateTime @map("period_start") @db.Date
+  periodEnd      DateTime @map("period_end") @db.Date
+  actualRevenue  Decimal  @map("actual_revenue") @db.Decimal(14, 2) // uang masuk aktual (input manual)
+  modalCost      Decimal  @map("modal_cost") @db.Decimal(14, 2) // total modal kardus pekan ini (otomatis)
+  netProfit      Decimal  @map("net_profit") @db.Decimal(14, 2) // actualRevenue - modalCost
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  refrigerator Refrigerator              @relation(fields: [refrigeratorId], references: [id])
+  user         User                      @relation(fields: [userId], references: [id])
+  shares       RefrigeratorReportShare[]
+
+  @@index([refrigeratorId])
+  @@index([periodStart(sort: Desc)])
+  @@map("refrigerator_weekly_reports")
+}
+
+/// Snapshot pembagian laba per instansi untuk satu rekap pekanan.
+/// Disnapshot agar perubahan konfigurasi bagi hasil tidak mengubah rekap lama.
+model RefrigeratorReportShare {
+  id           String  @id @default(uuid())
+  reportId     String  @map("report_id")
+  instansiName String  @map("instansi_name") @db.VarChar(150)
+  percentage   Decimal @db.Decimal(5, 2)
+  amount       Decimal @db.Decimal(14, 2) // netProfit * percentage / 100
+
+  report RefrigeratorWeeklyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("refrigerator_report_shares")
 }
