@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,6 +19,7 @@ import {
   History,
   PlusCircle,
   Percent,
+  Calculator,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -140,12 +142,20 @@ export default function RefrigeratorsPage() {
           <h1 className="section-title" style={{ marginTop: 0, marginBottom: '0.25rem' }}>Kulkas Suti</h1>
           <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>Pantau dan catat pengisian suti di setiap kulkas.</p>
         </div>
-        <button
-          onClick={openCreate}
-          style={{ backgroundColor: BRAND_DARK, color: 'white', border: 'none', padding: '0.6rem 1.1rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, cursor: 'pointer' }}
-        >
-          <Plus size={18} /> Tambah Kulkas
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <Link
+            href="/dashboard/refrigerators/rekap"
+            style={{ backgroundColor: 'white', color: BRAND_DARK, border: `1px solid ${BRAND_DARK}`, padding: '0.6rem 1.1rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}
+          >
+            <Calculator size={18} /> Rekap Pekanan
+          </Link>
+          <button
+            onClick={openCreate}
+            style={{ backgroundColor: BRAND_DARK, color: 'white', border: 'none', padding: '0.6rem 1.1rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, cursor: 'pointer' }}
+          >
+            <Plus size={18} /> Tambah Kulkas
+          </button>
+        </div>
       </div>
 
       {/* Ringkasan */}

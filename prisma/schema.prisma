@@ -55,6 +55,7 @@ model User {
   refrigeratorsCreated Refrigerator[]             @relation("RefrigeratorCreatedBy")
   refrigeratorFills    RefrigeratorFill[]
   refrigeratorReports  RefrigeratorWeeklyReport[]
+  kulkasRekaps         KulkasRekap[]
 
   @@index([email])
   @@index([role])
@@ -294,6 +295,7 @@ model Refrigerator {
   fills         RefrigeratorFill[]
   shares        RefrigeratorShare[]
   weeklyReports RefrigeratorWeeklyReport[]
+  rekapLines    KulkasRekapLine[]
 
   @@index([isActive])
   @@index([name])
@@ -384,4 +386,87 @@ model RefrigeratorReportShare {
 
   @@index([reportId])
   @@map("refrigerator_report_shares")
+}
+
+// =============================================================================
+//  REKAP PERHITUNGAN UANG KULKAS PEKANAN
+//  Satu "lembar" rekap pekanan = satu KulkasRekap, berisi banyak baris kulkas
+//  (KulkasRekapLine, masing-masing dengan rincian pecahan uang) + bagi hasil.
+// =============================================================================
+
+/// Header satu lembar rekap pekanan (mis. "Kampus" atau "RSI").
+/// Semua nilai turunan (cashTotal, qrisTotal, grandTotal, modalCost, netProfit)
+/// dihitung & disimpan di service agar cetak ulang konsisten.
+model KulkasRekap {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  rekapDate   DateTime @map("rekap_date") @db.Date // Hari/Tanggal rekap
+  title       String?  @db.VarChar(150) // Label lembar, mis. "Kampus" / "RSI" (opsional)
+
+  // Modal: total terjual (dus) x harga per dus
+  dusSold     Int     @default(0) @map("dus_sold")
+  pricePerDus Decimal @default(0) @map("price_per_dus") @db.Decimal(12, 2)
+  modalCost   Decimal @default(0) @map("modal_cost") @db.Decimal(14, 2) // dusSold * pricePerDus
+
+  // Nilai turunan (disnapshot)
+  cashTotal  Decimal @default(0) @map("cash_total") @db.Decimal(14, 2) // total uang tunai semua kulkas
+  qrisTotal  Decimal @default(0) @map("qris_total") @db.Decimal(14, 2) // total QRIS semua kulkas
+  grandTotal Decimal @default(0) @map("grand_total") @db.Decimal(14, 2) // cashTotal + qrisTotal
+  netProfit  Decimal @default(0) @map("net_profit") @db.Decimal(14, 2) // grandTotal - modalCost
+
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User               @relation(fields: [userId], references: [id])
+  lines  KulkasRekapLine[]
+  shares KulkasRekapShare[]
+
+  @@index([rekapDate(sort: Desc)])
+  @@map("kulkas_rekaps")
+}
+
+/// Satu baris kulkas dalam lembar rekap: rincian pecahan uang + QRIS.
+/// cashTotal = jumlah seluruh (pecahan x lembar).
+model KulkasRekapLine {
+  id             String  @id @default(uuid())
+  rekapId        String  @map("rekap_id")
+  refrigeratorId String? @map("refrigerator_id") // null bila lokasi diketik manual
+  label          String  @db.VarChar(150) // Nama kulkas/lokasi (snapshot saat dibuat)
+
+  // Jumlah lembar/keping per pecahan
+  qty500    Int @default(0) @map("qty_500")
+  qty1000   Int @default(0) @map("qty_1000")
+  qty2000   Int @default(0) @map("qty_2000")
+  qty5000   Int @default(0) @map("qty_5000")
+  qty10000  Int @default(0) @map("qty_10000")
+  qty20000  Int @default(0) @map("qty_20000")
+  qty50000  Int @default(0) @map("qty_50000")
+  qty100000 Int @default(0) @map("qty_100000")
+
+  cashTotal  Decimal @default(0) @map("cash_total") @db.Decimal(14, 2)
+  qrisAmount Decimal @default(0) @map("qris_amount") @db.Decimal(14, 2)
+  sortOrder  Int     @default(0) @map("sort_order")
+
+  rekap        KulkasRekap   @relation(fields: [rekapId], references: [id], onDelete: Cascade)
+  refrigerator Refrigerator? @relation(fields: [refrigeratorId], references: [id])
+
+  @@index([rekapId])
+  @@index([refrigeratorId])
+  @@map("kulkas_rekap_lines")
+}
+
+/// Snapshot pembagian laba per instansi untuk satu lembar rekap pekanan.
+model KulkasRekapShare {
+  id           String  @id @default(uuid())
+  rekapId      String  @map("rekap_id")
+  instansiName String  @map("instansi_name") @db.VarChar(150)
+  percentage   Decimal @db.Decimal(5, 2)
+  amount       Decimal @db.Decimal(14, 2) // netProfit * percentage / 100
+  sortOrder    Int     @default(0) @map("sort_order")
+
+  rekap KulkasRekap @relation(fields: [rekapId], references: [id], onDelete: Cascade)
+
+  @@index([rekapId])
+  @@map("kulkas_rekap_shares")
 }
