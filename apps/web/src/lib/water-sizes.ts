@@ -1,8 +1,8 @@
 // Satu-satunya tempat mengubah daftar ukuran kemasan (frontend).
 // Mengubah daftar di sini otomatis mengubah radio input & filter laporan.
-// Diselaraskan dengan katalog produk Suti (Gelas 240ml, Botol 600ml/1500ml, Galon).
+// Diselaraskan dengan katalog produk Suti (Gelas 220ml, Botol 330ml/550ml/600ml, Galon).
 // PENTING: jaga sinkron dengan apps/api/src/constants/waterSizes.ts.
-export const WATER_SIZES = ['240ml', '600ml', '1500ml', 'Galon'] as const;
+export const WATER_SIZES = ['220ml', '330ml', '550ml', '600ml', 'Galon'] as const;
 export type WaterSize = (typeof WATER_SIZES)[number];
 
 // Nilai khusus untuk filter laporan "semua ukuran".

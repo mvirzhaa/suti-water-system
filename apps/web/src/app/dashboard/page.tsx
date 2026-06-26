@@ -37,6 +37,14 @@ export default function DashboardPage() {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
   };
 
+  // Helper untuk warna badge rank
+  const getRankStyle = (rank: number) => {
+    if (rank === 1) return { bg: '#eab308', text: 'white' }; // Emas
+    if (rank === 2) return { bg: '#94a3b8', text: 'white' }; // Perak
+    if (rank === 3) return { bg: '#cd7f32', text: 'white' }; // Perunggu
+    return { bg: '#f1f5f9', text: '#64748b' }; // Lainnya
+  };
+
   return (
     <div style={{ paddingBottom: '3rem' }}>
       
@@ -81,7 +89,7 @@ export default function DashboardPage() {
       <div className="dash-grid-4">
         {data.topBuyers.length > 0 ? data.topBuyers.map((agen, idx) => (
           <div key={idx} className="dash-card" style={{ position: 'relative' }}>
-            <div style={{ position: 'absolute', top: '-10px', right: '-10px', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: agen.rank === 1 ? '#eab308' : '#94a3b8', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', border: '3px solid white' }}>
+            <div style={{ position: 'absolute', top: '-10px', right: '-10px', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: getRankStyle(agen.rank).bg, color: getRankStyle(agen.rank).text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', border: '3px solid white' }}>
               {agen.rank}
             </div>
             <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agen.name}</p>
@@ -98,7 +106,7 @@ export default function DashboardPage() {
       <div className="dash-grid-4">
         {data.topProducts.length > 0 ? data.topProducts.map((prod, idx) => (
           <div key={idx} className="dash-card" style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: '10px', right: '10px', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: prod.rank === 1 ? '#eab308' : '#94a3b8', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold' }}>
+            <div style={{ position: 'absolute', top: '10px', right: '10px', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: getRankStyle(prod.rank).bg, color: getRankStyle(prod.rank).text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold' }}>
               {prod.rank}
             </div>
             <div style={{ width: '60%' }}>
@@ -108,7 +116,12 @@ export default function DashboardPage() {
               </h2>
               <span className="badge badge-blue" style={{ marginTop: '0.5rem' }}>{prod.unit.toUpperCase()}</span>
             </div>
-            <img src={prod.img || 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=100&h=100&fit=crop'} alt={prod.name} style={{ width: '60px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+            <img 
+              src={prod.img || 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=100&h=100&fit=crop'} 
+              alt={prod.name} 
+              style={{ width: '60px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} 
+              onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=100&h=100&fit=crop'; }}
+            />
           </div>
         )) : <p style={{ color: 'gray' }}>Belum ada data produk terlaris</p>}
       </div>

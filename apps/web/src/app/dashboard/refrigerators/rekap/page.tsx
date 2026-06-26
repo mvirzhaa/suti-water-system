@@ -64,6 +64,9 @@ const escapeHtml = (value: unknown) =>
 // ---------------------------------------------------------------------------
 //  CETAK — meniru lembar "Rekapitulasi Perhitungan Uang Kulkas Pekanan"
 // ---------------------------------------------------------------------------
+const logoSvg = `<img src="/images/logo-login2.png" alt="Suti Water" style="width:120px;height:auto;object-fit:contain;" />`;
+const bksppiMark = `<img src="/images/bksppi.png" alt="BKsPPI" style="width:110px;height:auto;object-fit:contain;justify-self:end;" />`;
+
 function buildRekapPrintHtml(rekap: KulkasRekap) {
   const num = (n: number) => formatNumber(n);
 
@@ -81,8 +84,8 @@ function buildRekapPrintHtml(rekap: KulkasRekap) {
           <thead><tr><th>Nominal</th><th>Jumlah pcs</th><th>Jumlah Nominal</th></tr></thead>
           <tbody>${rows}</tbody>
           <tfoot>
-            <tr><td class="l">Total</td><td></td><td class="r">${num(Number(line.cashTotal) || 0)}</td></tr>
-            ${qris > 0 ? `<tr><td class="l">QRIS</td><td></td><td class="r">${num(qris)}</td></tr>` : ''}
+            <tr><td class="l" colspan="2" style="text-align:left;">Total Tunai</td><td class="r">${num(Number(line.cashTotal) || 0)}</td></tr>
+            ${qris > 0 ? `<tr><td class="l" colspan="2" style="text-align:left;">QRIS</td><td class="r">${num(qris)}</td></tr>` : ''}
           </tfoot>
         </table>
       </div>`;
@@ -99,7 +102,7 @@ function buildRekapPrintHtml(rekap: KulkasRekap) {
 
   const modalLine =
     rekap.dusSold > 0
-      ? `${num(rekap.dusSold)} dus × ${formatRupiah(Number(rekap.pricePerDus) || 0)} = ${formatRupiah(Number(rekap.modalCost) || 0)}`
+      ? `${num(rekap.dusSold)} dus &times; ${formatRupiah(Number(rekap.pricePerDus) || 0)} = ${formatRupiah(Number(rekap.modalCost) || 0)}`
       : formatRupiah(Number(rekap.modalCost) || 0);
 
   const summary = `
@@ -117,6 +120,8 @@ function buildRekapPrintHtml(rekap: KulkasRekap) {
       </table>
     </div>`;
 
+  const periodLine = `${rekap.title ? escapeHtml(rekap.title) + ' &mdash; ' : ''}Hari/Tanggal: ${formatDate(rekap.rekapDate)}`;
+
   return `
     <!doctype html>
     <html>
@@ -124,37 +129,78 @@ function buildRekapPrintHtml(rekap: KulkasRekap) {
         <meta charset="utf-8" />
         <title>Rekap Kulkas Pekanan</title>
         <style>
-          @page { size: A4 portrait; margin: 12mm; }
+          @page { size: A4 landscape; margin: 14mm; }
           * { box-sizing: border-box; }
           body { margin: 0; color: #111; background: #fff; font-family: Arial, Helvetica, sans-serif; }
-          .head { text-align: center; margin-bottom: 14px; }
-          .head h1 { margin: 0; color: #c0392b; font-size: 18px; font-weight: 800; letter-spacing: .5px; }
-          .head p { margin: 4px 0 0; font-size: 13px; }
-          .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-          .box { border: 1px solid #111; }
-          .box-title { text-align: center; font-weight: 800; font-size: 12px; padding: 3px; border-bottom: 1px solid #111; background: #f1f5f9; }
-          table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
-          th, td { border: 1px solid #111; padding: 2px 4px; }
-          th { font-weight: 700; font-size: 9.5px; }
+          
+          .report-header {
+            display: grid;
+            grid-template-columns: 150px 1fr 160px;
+            align-items: center;
+            gap: 18px;
+            margin-bottom: 28px;
+          }
+          .title {
+            text-align: center;
+            color: #006fb2;
+            line-height: 1.16;
+          }
+          .title h1 {
+            margin: 0;
+            font-size: 26px;
+            font-weight: 800;
+          }
+          .title h2 {
+            margin: 2px 0 10px;
+            font-size: 24px;
+            font-weight: 800;
+          }
+          .title p {
+            margin: 0;
+            color: #111;
+            font-size: 16px;
+          }
+          .cert-mark {
+            justify-self: end;
+          }
+
+          .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+          
+          .box { border: 1.6px solid #111; }
+          .box-title { text-align: center; font-weight: 800; font-size: 13px; padding: 6px; border-bottom: 1.6px solid #111; background: #f1f5f9; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          th, td { border: 1.6px solid #111; padding: 4px 6px; }
+          th { font-weight: 800; background: #fafafa; }
           td.c { text-align: center; } td.r { text-align: right; } td.l { text-align: left; }
-          tfoot td { font-weight: 800; }
-          .totals { margin-top: 12px; text-align: right; font-size: 14px; font-weight: 800; }
-          .summary { margin-top: 16px; max-width: 360px; }
-          .summary h3 { margin: 0 0 6px; font-size: 14px; color: ${BRAND_DARK}; }
-          table.sum { font-size: 12px; }
-          table.sum td { border: 1px solid #111; padding: 5px 8px; }
-          table.sum tr.strong td { font-weight: 800; }
+          tfoot td { font-weight: 800; background: #f8fafc; }
+          
+          .totals { margin-top: 16px; text-align: right; font-size: 16px; font-weight: 800; color: #006fb2; }
+          
+          .summary { margin-top: 20px; max-width: 400px; }
+          .summary h3 { margin: 0 0 8px; font-size: 16px; color: ${BRAND_DARK}; }
+          table.sum { font-size: 13px; border: 1.6px solid #111; }
+          table.sum td { border: 1.6px solid #111; padding: 6px 10px; }
+          table.sum tr.strong td { font-weight: 800; background: #f8fafc; }
+          
           @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         </style>
       </head>
       <body>
-        <div class="head">
-          <h1>REKAPITULASI PERHITUNGAN UANG KULKAS PEKANAN</h1>
-          <p>${rekap.title ? escapeHtml(rekap.title) + ' — ' : ''}Hari/Tanggal: ${formatDate(rekap.rekapDate)}</p>
-        </div>
-        <div class="grid">${boxes}</div>
-        <div class="totals">TOTAL KESELURUHAN (TUNAI): ${formatRupiah(Number(rekap.cashTotal) || 0)}</div>
-        ${summary}
+        <main style="width: 100%; padding: 12px 16px;">
+          <header class="report-header">
+            <div>${logoSvg}</div>
+            <div class="title">
+              <h1>REKAPITULASI PERHITUNGAN UANG KULKAS PEKANAN</h1>
+              <h2>Air Mineral Dalam Kemasan Suti Water</h2>
+              <p>${periodLine}</p>
+            </div>
+            <div>${bksppiMark}</div>
+          </header>
+
+          <div class="grid">${boxes}</div>
+          <div class="totals">TOTAL KESELURUHAN (TUNAI): ${formatRupiah(Number(rekap.cashTotal) || 0)}</div>
+          ${summary}
+        </main>
         <script>
           window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 350); });
         </script>
