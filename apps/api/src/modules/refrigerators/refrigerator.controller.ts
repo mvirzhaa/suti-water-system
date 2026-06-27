@@ -123,6 +123,21 @@ export class RefrigeratorController {
     }
   }
 
+  async updateFill(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await service.updateFill(
+        req.params.id as string,
+        req.params.fillId as string,
+        req.body,
+        req.user!.userId,
+        auditCtx(req),
+      );
+      ApiResponse.success(res, data, 'Data pengisian berhasil diperbarui');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // --- REKAP PEKANAN / BAGI HASIL --------------------------------------------
 
   async recapPreview(req: Request, res: Response, next: NextFunction) {

@@ -26,6 +26,12 @@ enum DiscountScope {
   PRODUCT
 }
 
+enum StockOutType {
+  AGEN
+  KULKAS
+  SEDEKAH
+}
+
 // ==========================================
 // MODELS
 // ==========================================
@@ -147,7 +153,9 @@ model StockIn {
   notaFilename String?  @map("nota_filename") @db.VarChar(255)
   notaSize     Int?     @map("nota_size")
   notes        String?
-  size         String?  @map("size") @db.VarChar(20) // ukuran kemasan: "240ml" … "Galon" (null = lama/tak berukuran)
+  size           String?  @map("size") @db.VarChar(20) // ukuran kemasan: "240ml" … "Galon" (null = lama/tak berukuran)
+  unitsPerPack   Int      @default(0) @map("units_per_pack") // jumlah satuan kecil per pack (mis. 24 botol/kardus)
+  pricePerSmallUnit Decimal @default(0) @map("price_per_small_unit") @db.Decimal(12, 2) // harga per satuan kecil (mis. per botol)
   remainingStock Int    @default(0) @map("remaining_stock")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -179,10 +187,14 @@ model StockOut {
   notaFilename   String?  @map("nota_filename") @db.VarChar(255)
   notaSize       Int?     @map("nota_size")
   notes          String?
-  size           String?  @map("size") @db.VarChar(20) // ukuran kemasan: "240ml" … "Galon" (null = lama/tak berukuran)
+  size              String?      @map("size") @db.VarChar(20) // ukuran kemasan: "240ml" … "Galon" (null = lama/tak berukuran)
+  exitType          StockOutType @default(AGEN) @map("exit_type") // tujuan barang keluar
+  unitsPerPack      Int          @default(0) @map("units_per_pack") // jumlah satuan kecil per pack (mis. 24 botol/kardus)
+  pricePerSmallUnit Decimal      @default(0) @map("price_per_small_unit") @db.Decimal(12, 2) // harga per satuan kecil
   productStockSnapshot Int @default(0) @map("product_stock_snapshot")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  documentNumber String?  @unique @map("document_number") @db.VarChar(50)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   product  Product   @relation(fields: [productId], references: [id])
   user     User      @relation(fields: [userId], references: [id])

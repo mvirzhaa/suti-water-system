@@ -132,7 +132,7 @@ export default function SuratPenagihanPage() {
         {/* Details */}
         <div style={{ fontSize: '1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
           <p style={{ margin: 0 }}>Bogor, {formattedDate}</p>
-          <p style={{ margin: 0 }}>Nomor: 022/SWK/01002/{exitDate.getFullYear()}</p>
+          <p style={{ margin: 0 }}>Nomor: {data.documentNumber ? `INV/${data.documentNumber}/${exitDate.getFullYear()}` : '-'}</p>
           <p style={{ margin: 0 }}>Perihal: Penagihan Biaya Pembelian Air Mineral Suti Water {productSize}</p>
         </div>
 

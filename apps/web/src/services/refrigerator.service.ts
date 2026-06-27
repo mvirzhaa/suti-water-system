@@ -70,6 +70,11 @@ export const refrigeratorService = {
     return res.data.data;
   },
 
+  updateFill: async (refrigeratorId: string, fillId: string, payload: Partial<FillInput>): Promise<RefrigeratorFill> => {
+    const res = await api.put(`${BASE}/${refrigeratorId}/fills/${fillId}`, payload);
+    return res.data.data;
+  },
+
   getFills: async (
     refrigeratorId: string,
     params: FillListParams = {},

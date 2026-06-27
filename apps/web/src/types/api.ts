@@ -66,10 +66,14 @@ export type StockInRecord = {
   size?: string | null;
   notaUrl?: string | null;
   remainingStock?: number;
+  unitsPerPack?: number;
+  pricePerSmallUnit?: number;
   product?: Pick<Product, 'sku' | 'name' | 'unit'>;
   suppl?: Pick<Supplier, 'name'>;
   supplier?: string | null;
 };
+
+export type StockOutType = 'AGEN' | 'KULKAS' | 'SEDEKAH';
 
 export type StockOutRecord = {
   id: string;
@@ -83,6 +87,9 @@ export type StockOutRecord = {
   notes?: string | null;
   notaUrl?: string | null;
   productStockSnapshot?: number;
+  exitType?: StockOutType;
+  unitsPerPack?: number;
+  pricePerSmallUnit?: number;
   product?: Pick<Product, 'sku' | 'name'>;
   agent?: Pick<Agent, 'name'>;
   discount?: Pick<Discount, 'value'>;

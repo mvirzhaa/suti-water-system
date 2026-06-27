@@ -34,6 +34,7 @@ router.get('/:id', (req, res, next) => controller.detail(req, res, next));
 // --- Pengisian (fill) --------------------------------------------------------
 router.post('/:id/fills', validate(createFillSchema), (req, res, next) => controller.createFill(req, res, next));
 router.get('/:id/fills', (req, res, next) => controller.listFills(req, res, next));
+router.put('/:id/fills/:fillId', validate(createFillSchema.partial()), (req, res, next) => controller.updateFill(req, res, next));
 router.delete(
   '/:id/fills/:fillId',
   checkRole(['SUPER_ADMIN', 'PIMPINAN']),

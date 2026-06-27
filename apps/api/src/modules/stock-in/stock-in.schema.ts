@@ -10,6 +10,8 @@ export const createStockInSchema = z.object({
   entryDate: z.string({ error: 'Tanggal masuk wajib diisi' }).regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal: YYYY-MM-DD'),
   notes: z.string().optional(),
   size: z.enum(WATER_SIZES).optional(),
+  unitsPerPack: z.coerce.number().int().min(0).optional().default(0),
+  pricePerSmallUnit: z.coerce.number().min(0).optional().default(0),
 });
 
 export const updateStockInSchema = createStockInSchema.partial();

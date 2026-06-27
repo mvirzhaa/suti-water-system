@@ -16,7 +16,8 @@ import {
   X,
   BadgePercent,
   ShieldCheck,
-  Snowflake
+  Snowflake,
+  ScanFace
 } from 'lucide-react';
 
 type SidebarProps = {
@@ -36,6 +37,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Barang Keluar', href: '/dashboard/stock-out', icon: ArrowUpFromLine },
     { name: 'Kartu Stok', href: '/dashboard/stok', icon: FileText },
     { name: 'Kulkas', href: '/dashboard/refrigerators', icon: Snowflake },
+    { name: 'AI Recognition', href: '/dashboard/ai-recognition', icon: ScanFace },
     { name: 'Master Data', href: '/dashboard/master', icon: Database, hasDropdown: true },
     { name: 'Laporan', href: '/dashboard/reports', icon: FileText },
     // { name: 'Aktivitas', href: '/dashboard/audit-logs', icon: ShieldCheck }, // disembunyikan sementara

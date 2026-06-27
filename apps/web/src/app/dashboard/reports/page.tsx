@@ -184,8 +184,16 @@ const buildStockInRows = (rows: StockInRecord[]) => {
 };
 
 const buildStockOutRows = (rows: StockOutRecord[]) => {
+  // Hanya tipe AGEN yang dihitung sebagai pendapatan
+  const agenRows = rows.filter(r => !r.exitType || r.exitType === 'AGEN');
   const totalQty = rows.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-  const totalAmount = rows.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
+  const totalAmount = agenRows.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
+
+  const exitTypeBadge: Record<string, string> = {
+    AGEN: '🏪 Agen',
+    KULKAS: '🧊 Kulkas',
+    SEDEKAH: '🤲 Sedekah',
+  };
 
   return {
     totalQty,
@@ -197,10 +205,10 @@ const buildStockOutRows = (rows: StockOutRecord[]) => {
             <th>No.</th>
             <th>Kode Barang</th>
             <th>Tanggal Keluar</th>
+            <th>Tipe</th>
             <th>Barang</th>
             <th>Ukuran</th>
             <th>Nama Agen/Pembeli</th>
-            <th>Alamat Pembeli</th>
             <th>Harga</th>
             <th>Diskon</th>
             <th>Jumlah</th>
@@ -209,27 +217,28 @@ const buildStockOutRows = (rows: StockOutRecord[]) => {
         </thead>
         <tbody>
           ${rows.map((item, index) => {
-            const address = item.notes?.replace('Alamat: ', '') || '-';
+            const exitT = item.exitType ?? 'AGEN';
+            const isNonRevenue = exitT !== 'AGEN';
             return `
-              <tr>
+              <tr style="${isNonRevenue ? 'background:#f8fafc;color:#64748b;' : ''}">
                 <td>${index + 1}.</td>
                 <td>${escapeHtml(item.product?.sku)}</td>
                 <td>${formatDate(item.exitDate, '-')}</td>
+                <td>${exitTypeBadge[exitT] || exitT}</td>
                 <td>${escapeHtml(item.product?.name)}</td>
                 <td>${escapeHtml(item.size)}</td>
                 <td>${escapeHtml(item.agent?.name || item.buyerName)}</td>
-                <td>${escapeHtml(address)}</td>
                 <td>${formatCurrency(Number(item.pricePerUnit || 0))}</td>
                 <td>${Number(item.discountAmount || 0) > 0 ? formatCurrency(Number(item.discountAmount)) : 'Rp. -'}</td>
                 <td>${Number(item.quantity || 0).toLocaleString('id-ID')}</td>
-                <td>${formatCurrency(Number(item.totalPrice || 0))}</td>
+                <td>${isNonRevenue ? '<em>Tidak dihitung</em>' : formatCurrency(Number(item.totalPrice || 0))}</td>
               </tr>
             `;
           }).join('')}
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="9" class="total-label">Total Keseluruhan Harga:</td>
+            <td colspan=\"10\" class=\"total-label\">Total Keseluruhan (Pendapatan Agen):</td>
             <td>${totalQty.toLocaleString('id-ID')}</td>
             <td>${formatCurrency(totalAmount)}</td>
           </tr>

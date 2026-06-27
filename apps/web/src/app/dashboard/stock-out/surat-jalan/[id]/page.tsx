@@ -142,7 +142,7 @@ export default function SuratJalanPage() {
             <tbody>
               <tr>
                 <td style={{ paddingRight: '1rem' }}>Nomor</td>
-                <td>: 022/SWK/01002/{exitDate.getFullYear()}</td>
+                <td>: {data.documentNumber ? `SJ/${data.documentNumber}/${exitDate.getFullYear()}` : '-'}</td>
               </tr>
               <tr>
                 <td style={{ paddingRight: '1rem' }}>Tanggal</td>
@@ -201,13 +201,19 @@ export default function SuratJalanPage() {
         </div>
 
         {/* Signatures */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem' }}>
-          <div style={{ width: '50%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', marginTop: '1rem' }}>
+          <div style={{ width: '45%', textAlign: 'center' }}>
             <p style={{ margin: 0 }}>Hormat kami, Distributor Utama Suti Water</p>
-          </div>
-          <div style={{ width: '50%', textAlign: 'center' }}>
-            <p style={{ margin: '0 0 5rem 0' }}>Ketua Distributor,</p>
+            <p style={{ margin: '0 0 5rem 0' }}>Pengirim,</p>
+            <div style={{ borderBottom: '1px solid #000', marginBottom: '0.25rem' }} />
             <p style={{ margin: 0, fontWeight: 'bold' }}>Dr. Muh Jais, S.Sy. M.E.</p>
+            <p style={{ margin: 0, fontSize: '0.85rem' }}>Ketua Distributor</p>
+          </div>
+          <div style={{ width: '45%', textAlign: 'center' }}>
+            <p style={{ margin: '0 0 0.25rem 0' }}>Penerima,</p>
+            <p style={{ margin: '0 0 5rem 0', fontSize: '0.85rem', color: '#555' }}>{buyerName}</p>
+            <div style={{ borderBottom: '1px solid #000', marginBottom: '0.25rem' }} />
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#555' }}>(Nama &amp; Tanda Tangan)</p>
           </div>
         </div>
 

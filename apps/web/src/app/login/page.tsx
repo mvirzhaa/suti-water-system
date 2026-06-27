@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, LoginFormData, authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getApiErrorMessage } from '@/lib/api-error';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,10 +37,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href = authService.getGoogleAuthUrl();
-  };
-
   return (
     <div className="auth-wrapper">
       <div className="auth-card">
@@ -59,6 +55,9 @@ export default function LoginPage() {
           </div>
 
           <h1 className="auth-title">Selamat Datang</h1>
+          <p style={{ fontSize: '0.8rem', color: '#64748b', textAlign: 'center', marginBottom: '0.75rem', maxWidth: '300px' }}>
+            Sistem internal SUTI Water. Masuk menggunakan akun yang telah diverifikasi oleh administrator.
+          </p>
 
           {errorMsg && (
             <div style={{ width: '100%', maxWidth: '360px', padding: '0.75rem', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: '0.5rem', marginBottom: '1rem', fontSize: '0.875rem', textAlign: 'center' }}>
@@ -90,16 +89,14 @@ export default function LoginPage() {
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               {isSubmitting ? 'Memproses...' : 'Masuk'}
             </button>
-            
-            <button type="button" className="btn btn-google" onClick={handleGoogleLogin}>
-              <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" width="20" height="20" />
-              Lanjutkan dengan google
-            </button>
           </form>
 
-          <p className="auth-links">
-            Belum punya akun? <Link href="/register" className="auth-link">Buat Akun</Link>
+          <p style={{ marginTop: '1.5rem', fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center' }}>
+            Belum punya akun? Hubungi administrator untuk mendapatkan akses.
           </p>
+          <Link href="/" style={{ fontSize: '0.78rem', color: '#0CA5EA', textDecoration: 'none', marginTop: '0.5rem', display: 'block', textAlign: 'center' }}>
+            ← Kembali ke Beranda
+          </Link>
         </div>
       </div>
     </div>

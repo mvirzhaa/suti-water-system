@@ -1,0 +1,37 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+# Enable corepack for npm/pnpm/yarn management if needed, but we'll use npm.
+COPY package*.json ./
+COPY turbo.json ./
+COPY prisma ./prisma
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+
+# Install dependencies for all workspaces
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Generate Prisma Client
+RUN npx prisma generate
+
+# Build API
+RUN npm run build --workspace=apps/api
+
+# Production image
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/package.json ./apps/api/
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/prisma ./prisma
+
+EXPOSE 5000
+
+ENV NODE_ENV=production
+# Run API using node
+CMD ["node", "apps/api/dist/app.js"]

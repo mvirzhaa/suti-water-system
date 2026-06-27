@@ -9,7 +9,7 @@ export class StockInService {
    * Menggunakan Prisma Transaction agar data konsisten
    */
   async create(userId: string, dto: CreateStockInDto, file?: any) {
-    const { productId, quantity, pricePerUnit, supplier, supplierId, entryDate, notes, size } = dto;
+    const { productId, quantity, pricePerUnit, supplier, supplierId, entryDate, notes, size, unitsPerPack = 0, pricePerSmallUnit = 0 } = dto;
 
     // Hitung total cost
     const totalCost = quantity * pricePerUnit;
@@ -32,6 +32,8 @@ export class StockInService {
           notaUrl: file?.path || file?.url,
           notes,
           size,
+          unitsPerPack,
+          pricePerSmallUnit,
           remainingStock: quantity
         },
         include: { product: true }

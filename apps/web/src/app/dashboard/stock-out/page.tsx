@@ -14,22 +14,36 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuthStore } from '@/store/useAuthStore';
 import Swal from 'sweetalert2';
 import { WATER_SIZES } from '@/lib/water-sizes';
-import type { Agent, Discount, Product, StockOutRecord } from '@/types/api';
+import type { Agent, Discount, Product, StockOutRecord, StockOutType } from '@/types/api';
 
 // Format currency
 const formatRupiah = (number: number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
 };
 
+const EXIT_TYPE_OPTIONS: Array<{ value: StockOutType; label: string; color: string }> = [
+  { value: 'AGEN', label: '🏪 Agen', color: '#006FB2' },
+  { value: 'KULKAS', label: '🧊 Kulkas', color: '#0CA5EA' },
+  { value: 'SEDEKAH', label: '🤲 Sedekah', color: '#10b981' },
+];
+
+const EXIT_TYPE_BADGE: Record<StockOutType, { label: string; bg: string; color: string }> = {
+  AGEN: { label: 'Agen', bg: '#dbeafe', color: '#1d4ed8' },
+  KULKAS: { label: 'Kulkas', bg: '#e0f7fa', color: '#0077a0' },
+  SEDEKAH: { label: 'Sedekah', bg: '#dcfce7', color: '#15803d' },
+};
+
 // Zod Schema
 const stockOutSchema = z.object({
+  exitType: z.enum(['AGEN', 'KULKAS', 'SEDEKAH']).optional(),
   exitDate: z.string().min(1, 'Tanggal wajib diisi'),
   agentId: z.string().optional(),
-  buyerName: z.string().optional(), // For general buyers
-  buyerAddress: z.string().optional(), // Maps to 'notes' in backend
+  buyerName: z.string().optional(),
+  buyerAddress: z.string().optional(),
   productId: z.string().min(1, 'Barang wajib dipilih'),
   quantity: z.number().min(1, 'Kuantitas minimal 1'),
   pricePerUnit: z.number().min(0, 'Harga tidak boleh negatif'),
+  unitsPerPack: z.number().int().min(0).optional(),
   discountId: z.string().optional(),
   size: z.enum(WATER_SIZES).optional(),
   nota: z.any().optional(),
@@ -68,21 +82,20 @@ export default function StockOutPage() {
     }
   };
 
-  // Ref untuk file input nota
   const notaInputRef = useRef<HTMLInputElement>(null);
 
-  // Form State
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting }, reset } = useForm<StockOutFormData>({
     resolver: zodResolver(stockOutSchema),
-    defaultValues: { quantity: 0, pricePerUnit: 0 }
+    defaultValues: { exitType: 'AGEN', quantity: 0, pricePerUnit: 0, unitsPerPack: 0 }
   });
 
   const selectedProductId = watch('productId');
   const selectedDiscountId = watch('discountId');
   const quantity = watch('quantity') || 0;
+  const exitType = watch('exitType');
+  const unitsPerPack = watch('unitsPerPack') || 0;
   
   const selectedProduct = products.find(p => p.id === selectedProductId);
-  // Hanya tampilkan diskon yang aktif dan masa berlakunya valid
   const today = new Date().toISOString().slice(0, 10);
   const activeDiscounts = discounts.filter(d =>
     d.isActive &&
@@ -91,7 +104,6 @@ export default function StockOutPage() {
   );
   const selectedDiscount = activeDiscounts.find(d => d.id === selectedDiscountId);
 
-  // Derived values for the form UI
   const currentStock = selectedProduct?.stock || 0;
   const unit = selectedProduct?.unit || 'Pcs';
   const sku = selectedProduct?.sku || '';
@@ -103,13 +115,19 @@ export default function StockOutPage() {
     }
   }, [selectedProduct, setValue]);
 
+  // For SEDEKAH: force price to 0
+  useEffect(() => {
+    if (exitType === 'SEDEKAH') {
+      setValue('pricePerUnit', 0);
+    }
+  }, [exitType, setValue]);
+
   const pricePerUnit = watch('pricePerUnit') || 0;
   const subTotal = quantity * pricePerUnit;
   
-  // Hitung Diskon berdasarkan pilihan user
   let discountAmount = 0;
   let discountDisplay = 'Tidak ada diskon';
-  if (selectedDiscount) {
+  if (selectedDiscount && exitType === 'AGEN') {
     if (selectedDiscount.type === 'PERCENTAGE') {
       discountAmount = subTotal * (Number(selectedDiscount.value) / 100);
       discountDisplay = `${selectedDiscount.value}% = ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(discountAmount)}`;
@@ -119,8 +137,9 @@ export default function StockOutPage() {
     }
   }
   
-  const totalHarga = subTotal - discountAmount;
+  const totalHarga = (exitType === 'AGEN') ? (subTotal - discountAmount) : 0;
   const estimatedTotalStock = currentStock - Number(quantity);
+  const totalSmallUnits = unitsPerPack * quantity;
 
   useEffect(() => {
     fetchData(page);
@@ -161,7 +180,6 @@ export default function StockOutPage() {
   const fetchDiscounts = async () => {
     try {
       const res = await discountService.getAllActive();
-      // Asumsi res.data adalah array diskon
       setDiscounts(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error('Error fetching discounts', error);
@@ -189,15 +207,16 @@ export default function StockOutPage() {
       payload.append('quantity', formData.quantity.toString());
       payload.append('pricePerUnit', formData.pricePerUnit.toString());
       payload.append('exitDate', formData.exitDate);
+      payload.append('exitType', formData.exitType || 'AGEN');
+      payload.append('unitsPerPack', (formData.unitsPerPack ?? 0).toString());
       
-      if (formData.agentId) {
-        payload.append('agentId', formData.agentId);
-      } else if (formData.buyerName) {
-        payload.append('buyerName', formData.buyerName);
+      if (formData.exitType === 'AGEN') {
+        if (formData.agentId) payload.append('agentId', formData.agentId);
+        else if (formData.buyerName) payload.append('buyerName', formData.buyerName);
+        if (formData.discountId) payload.append('discountId', formData.discountId);
       }
       
       if (formData.buyerAddress) payload.append('notes', `Alamat: ${formData.buyerAddress}`);
-      if (formData.discountId) payload.append('discountId', formData.discountId);
       if (formData.size) payload.append('size', formData.size);
       
       const fileInput = notaInputRef.current;
@@ -263,18 +282,7 @@ export default function StockOutPage() {
           
           <button 
             onClick={() => setIsAddModalOpen(true)}
-            style={{ 
-              backgroundColor: '#006FB2', 
-              color: 'white', 
-              border: 'none', 
-              padding: '0.5rem 1rem', 
-              borderRadius: '0.5rem', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
+            style={{ backgroundColor: '#006FB2', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, cursor: 'pointer' }}
           >
             <Plus size={18} /> Tambah Data Barang Keluar
           </button>
@@ -286,15 +294,14 @@ export default function StockOutPage() {
             <thead>
               <tr>
                 <th>No.</th>
-                <th>Kode Barang</th>
-                <th>Tanggal Keluar</th>
+                <th>Kode</th>
+                <th>Tanggal</th>
+                <th>Tipe</th>
                 <th>Barang</th>
                 <th>Ukuran</th>
-                <th>Nama Agen/Pembeli</th>
-                <th>Alamat Pembeli</th>
+                <th>Agen/Pembeli</th>
                 <th>Harga</th>
-                <th>Diskon</th>
-                <th>Jumlah</th>
+                <th>Jml</th>
                 <th>Total Harga</th>
                 <th>Sisa Stok</th>
                 <th style={{ textAlign: 'center' }}>Aksi</th>
@@ -302,26 +309,29 @@ export default function StockOutPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={13} style={{ textAlign: 'center' }}>Memuat data...</td></tr>
+                <tr><td colSpan={12} style={{ textAlign: 'center' }}>Memuat data...</td></tr>
               ) : data.length === 0 ? (
-                <tr><td colSpan={13} style={{ textAlign: 'center' }}>Belum ada data barang keluar</td></tr>
+                <tr><td colSpan={12} style={{ textAlign: 'center' }}>Belum ada data barang keluar</td></tr>
               ) : (
                 data.map((item, index) => {
-                  const alamat = item.notes?.replace('Alamat: ', '') || '-';
-                  const diskonStr = item.discount ? `(${item.discount.value}%)` : 'Rp. -';
+                  const exitT = (item.exitType ?? 'AGEN') as StockOutType;
+                  const badge = EXIT_TYPE_BADGE[exitT];
                   return (
                     <tr key={item.id}>
                       <td>{index + 1}</td>
                       <td>{item.product?.sku || '-'}</td>
                       <td>{new Date(item.exitDate).toLocaleDateString('id-ID')}</td>
+                      <td>
+                        <span style={{ backgroundColor: badge.bg, color: badge.color, padding: '0.2rem 0.5rem', borderRadius: '1rem', fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {badge.label}
+                        </span>
+                      </td>
                       <td>{item.product?.name}</td>
                       <td>{item.size || '-'}</td>
                       <td>{item.agent?.name || item.buyerName || '-'}</td>
-                      <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{alamat}</td>
                       <td>{formatRupiah(item.pricePerUnit)}</td>
-                      <td>{item.discountAmount > 0 ? `${formatRupiah(item.discountAmount)} ${diskonStr}` : 'Rp. -'}</td>
                       <td>{item.quantity}</td>
-                      <td>{formatRupiah(item.totalPrice)}</td>
+                      <td>{exitT === 'AGEN' ? formatRupiah(item.totalPrice) : <span style={{ color: '#64748b', fontSize: '0.78rem' }}>Tidak dihitung</span>}</td>
                       <td style={{ fontWeight: 600 }}>{item.productStockSnapshot ?? '-'}</td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
@@ -330,7 +340,7 @@ export default function StockOutPage() {
                               <ImageIcon size={14} />
                             </button>
                           ) : (
-                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Tidak ada nota</span>
+                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>-</span>
                           )}
                           <button style={{ backgroundColor: '#0CA5EA', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => router.push(`/dashboard/stock-out/surat-penagihan/${item.id}`)} title="Cetak Surat Penagihan">
                             <FileText size={14} />
@@ -339,7 +349,7 @@ export default function StockOutPage() {
                             <Truck size={14} />
                           </button>
                           {canDelete && (
-                            <button style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => handleDelete(item.id)} title="Hapus data barang keluar">
+                            <button style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} onClick={() => handleDelete(item.id)} title="Hapus">
                               <Trash2 size={14} />
                             </button>
                           )}
@@ -350,13 +360,12 @@ export default function StockOutPage() {
                 })
               )}
             </tbody>
-            {/* Footer Summary */}
             {!loading && data.length > 0 && (
               <tfoot>
                 <tr>
-                  <td colSpan={9} style={{ textAlign: 'right', fontWeight: 600, borderTop: '2px solid #e2e8f0' }}>Total Keseluruhan :</td>
+                  <td colSpan={8} style={{ textAlign: 'right', fontWeight: 600, borderTop: '2px solid #e2e8f0' }}>Total Keseluruhan :</td>
                   <td style={{ fontWeight: 700, borderTop: '2px solid #e2e8f0' }}>{totalKeseluruhanUnit.toLocaleString('id-ID')}</td>
-                  <td colSpan={2} style={{ fontWeight: 700, borderTop: '2px solid #e2e8f0' }}>{formatRupiah(totalKeseluruhanHarga)}</td>
+                  <td colSpan={3} style={{ fontWeight: 700, borderTop: '2px solid #e2e8f0' }}>{formatRupiah(totalKeseluruhanHarga)}</td>
                 </tr>
               </tfoot>
             )}
@@ -370,23 +379,17 @@ export default function StockOutPage() {
               Menampilkan {((page - 1) * LIMIT) + 1}–{Math.min(page * LIMIT, totalItems)} dari {totalItems} data
             </span>
             <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
-              <button type="button" onClick={() => setPage(1)} disabled={page === 1}
-                style={{ padding: '0.3rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, fontSize: '0.8rem' }}>«</button>
-              <button type="button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                style={{ padding: '0.3rem 0.7rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, fontSize: '0.8rem' }}>‹</button>
+              <button type="button" onClick={() => setPage(1)} disabled={page === 1} style={{ padding: '0.3rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, fontSize: '0.8rem' }}>«</button>
+              <button type="button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ padding: '0.3rem 0.7rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, fontSize: '0.8rem' }}>‹</button>
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 const start = Math.max(1, Math.min(page - 2, totalPages - 4));
                 const p = start + i;
                 return (
-                  <button key={p} type="button" onClick={() => setPage(p)}
-                    style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: p === page ? '#006FB2' : 'white', color: p === page ? 'white' : '#1e293b', cursor: 'pointer', fontWeight: p === page ? 700 : 400, fontSize: '0.8rem' }}
-                  >{p}</button>
+                  <button key={p} type="button" onClick={() => setPage(p)} style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: p === page ? '#006FB2' : 'white', color: p === page ? 'white' : '#1e293b', cursor: 'pointer', fontWeight: p === page ? 700 : 400, fontSize: '0.8rem' }}>{p}</button>
                 );
               })}
-              <button type="button" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                style={{ padding: '0.3rem 0.7rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, fontSize: '0.8rem' }}>›</button>
-              <button type="button" onClick={() => setPage(totalPages)} disabled={page === totalPages}
-                style={{ padding: '0.3rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, fontSize: '0.8rem' }}>»</button>
+              <button type="button" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ padding: '0.3rem 0.7rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, fontSize: '0.8rem' }}>›</button>
+              <button type="button" onClick={() => setPage(totalPages)} disabled={page === totalPages} style={{ padding: '0.3rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', backgroundColor: 'white', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, fontSize: '0.8rem' }}>»</button>
             </div>
           </div>
         )}
@@ -405,7 +408,31 @@ export default function StockOutPage() {
             <button onClick={() => setIsAddModalOpen(false)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>&times;</button>
             
             <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'grid', gap: '1rem' }}>
-              
+
+              {/* === TUJUAN BARANG KELUAR (PALING ATAS) === */}
+              <div style={{ background: 'linear-gradient(135deg, #f0f9ff, #e0f2fe)', border: '2px solid #0CA5EA', borderRadius: '0.75rem', padding: '1rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0c4a6e', display: 'block', marginBottom: '0.75rem' }}>
+                  🎯 Tujuan Barang Keluar
+                </label>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  {EXIT_TYPE_OPTIONS.map((opt) => {
+                    const isSelected = exitType === opt.value;
+                    return (
+                      <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem 1rem', borderRadius: '2rem', border: `2px solid ${isSelected ? opt.color : '#e2e8f0'}`, backgroundColor: isSelected ? opt.color : 'white', color: isSelected ? 'white' : '#334155', fontWeight: isSelected ? 700 : 400, fontSize: '0.875rem', transition: 'all 0.2s' }}>
+                        <input type="radio" value={opt.value} {...register('exitType')} style={{ display: 'none' }} />
+                        {opt.label}
+                      </label>
+                    );
+                  })}
+                </div>
+                {exitType === 'KULKAS' && (
+                  <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: '#0369a1' }}>ℹ️ Barang keluar untuk kulkas tercatat di laporan namun tidak dihitung sebagai pendapatan.</p>
+                )}
+                {exitType === 'SEDEKAH' && (
+                  <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: '#15803d' }}>ℹ️ Barang keluar sedekah tercatat di laporan namun tidak dihitung sebagai pendapatan.</p>
+                )}
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
                 <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Barang</label>
                 <div>
@@ -434,10 +461,18 @@ export default function StockOutPage() {
                 <div>
                   <div style={{ display: 'flex', border: '1px solid #cbd5e1', borderRadius: '0.25rem', overflow: 'hidden' }}>
                     <input type="number" placeholder="Jumlah Keluar..." {...register('quantity', { valueAsNumber: true })} style={{ flex: 1, padding: '0.5rem', border: 'none', outline: 'none' }} />
-                    <span style={{ backgroundColor: '#f8fafc', padding: '0.5rem 1rem', borderLeft: '1px solid #cbd5e1', color: '#64748b', fontSize: '0.875rem' }}>Jumlah</span>
+                    <span style={{ backgroundColor: '#f8fafc', padding: '0.5rem 1rem', borderLeft: '1px solid #cbd5e1', color: '#64748b', fontSize: '0.875rem' }}>{unit}</span>
                   </div>
                   {errors.quantity && <span style={{ color: 'red', fontSize: '0.75rem' }}>{errors.quantity.message}</span>}
                   {estimatedTotalStock < 0 && <span style={{ color: 'red', fontSize: '0.75rem' }}>Stok tidak mencukupi!</span>}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Isi per Pack ({unit})</label>
+                <div>
+                  <input type="number" min={0} placeholder="cth: 24 botol/kardus" {...register('unitsPerPack', { valueAsNumber: true })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none' }} />
+                  {unitsPerPack > 0 && <span style={{ fontSize: '0.72rem', color: '#0CA5EA', display: 'block', marginTop: '0.25rem' }}>Total: {totalSmallUnits} item</span>}
                 </div>
               </div>
 
@@ -477,54 +512,57 @@ export default function StockOutPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
-                <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Nama Agen</label>
-                <div>
-                  <select {...register('agentId')} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: 'white' }}>
-                    <option value="">Pilih Agen...</option>
-                    {agents.map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                  {errors.agentId && <span style={{ color: 'red', fontSize: '0.75rem' }}>{errors.agentId.message}</span>}
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'flex-start', gap: '1rem' }}>
-                <label style={{ fontSize: '0.875rem', fontWeight: 600, paddingTop: '0.5rem' }}>Alamat Pembeli</label>
-                <textarea rows={3} placeholder="Alamat lengkap..." {...register('buyerAddress')} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', resize: 'vertical' }}></textarea>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
-                <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Harga Jual</label>
-                <div>
-                  <input type="number" {...register('pricePerUnit', { valueAsNumber: true })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: 'white' }} />
-                  {errors.pricePerUnit && <span style={{ color: 'red', fontSize: '0.75rem' }}>{errors.pricePerUnit.message}</span>}
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
-                <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Diskon</label>
-                <div>
-                  <select {...register('discountId')} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: 'white' }}>
-                    <option value="">Tidak pakai diskon</option>
-                    {activeDiscounts.map(d => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} — {d.type === 'PERCENTAGE' ? `${d.value}%` : `Rp ${Number(d.value).toLocaleString('id-ID')}`}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedDiscount && (
-                    <span style={{ fontSize: '0.75rem', color: '#0CA5EA', marginTop: '0.2rem', display: 'block' }}>
-                      Potongan: {discountDisplay}
-                    </span>
-                  )}
-                </div>
-              </div>
+              {/* Agen/Pembeli — hanya untuk AGEN */}
+              {exitType === 'AGEN' && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
+                    <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Nama Agen</label>
+                    <div>
+                      <select {...register('agentId')} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: 'white' }}>
+                        <option value="">Pilih Agen...</option>
+                        {agents.map(a => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'flex-start', gap: '1rem' }}>
+                    <label style={{ fontSize: '0.875rem', fontWeight: 600, paddingTop: '0.5rem' }}>Alamat Pembeli</label>
+                    <textarea rows={3} placeholder="Alamat lengkap..." {...register('buyerAddress')} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', resize: 'vertical' }}></textarea>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
+                    <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Harga Jual</label>
+                    <div>
+                      <input type="number" {...register('pricePerUnit', { valueAsNumber: true })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: 'white' }} />
+                      {errors.pricePerUnit && <span style={{ color: 'red', fontSize: '0.75rem' }}>{errors.pricePerUnit.message}</span>}
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
+                    <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Diskon</label>
+                    <div>
+                      <select {...register('discountId')} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: 'white' }}>
+                        <option value="">Tidak pakai diskon</option>
+                        {activeDiscounts.map(d => (
+                          <option key={d.id} value={d.id}>
+                            {d.name} — {d.type === 'PERCENTAGE' ? `${d.value}%` : `Rp ${Number(d.value).toLocaleString('id-ID')}`}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedDiscount && (
+                        <span style={{ fontSize: '0.75rem', color: '#0CA5EA', marginTop: '0.2rem', display: 'block' }}>
+                          Potongan: {discountDisplay}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>
                 <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Total Harga</label>
-                <input type="text" value={formatRupiah(totalHarga)} readOnly style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: '#f1f5f9', fontWeight: 'bold', color: '#0CA5EA' }} />
+                <div>
+                  <input type="text" value={exitType === 'AGEN' ? formatRupiah(totalHarga) : 'Tidak dihitung (non-pendapatan)'} readOnly style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none', backgroundColor: '#f1f5f9', fontWeight: 'bold', color: exitType === 'AGEN' ? '#0CA5EA' : '#64748b' }} />
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', alignItems: 'center', gap: '1rem' }}>

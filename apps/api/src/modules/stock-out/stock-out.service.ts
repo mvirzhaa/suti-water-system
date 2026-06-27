@@ -6,9 +6,14 @@ import { createAuditLog } from '../../utils/auditLog';
 export class StockOutService {
   /**
    * Mencatat barang keluar (Penjualan/Pengeluaran Stok)
+   * exitType = AGEN → normal (kurangi stok + hitung pendapatan)
+   * exitType = KULKAS | SEDEKAH → kurangi stok, tapi totalPrice = 0 (tidak dihitung pendapatan)
    */
   async create(userId: string, dto: CreateStockOutDto, file?: any) {
-    const { productId, quantity, pricePerUnit, discountId, agentId, buyerName, exitDate, notes, size } = dto;
+    const {
+      productId, quantity, pricePerUnit, discountId, agentId, buyerName,
+      exitDate, notes, size, exitType = 'AGEN', unitsPerPack = 0, pricePerSmallUnit = 0,
+    } = dto;
 
     const stockOut = await prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({
@@ -31,7 +36,9 @@ export class StockOutService {
         }
       }
 
-      const totalPrice = (Number(pricePerUnit) * quantity) - discountAmount;
+      // Untuk KULKAS dan SEDEKAH: total harga = 0 (tidak dihitung sebagai pendapatan)
+      const rawTotal = (Number(pricePerUnit) * quantity) - discountAmount;
+      const totalPrice = (exitType === 'AGEN') ? rawTotal : 0;
 
       let qtyToDeplete = quantity;
       const availableStockIns = await tx.stockIn.findMany({
@@ -49,6 +56,10 @@ export class StockOutService {
         qtyToDeplete -= depleteAmount;
       }
 
+      const prefix = exitType === 'KULKAS' ? 'KLK' : exitType === 'SEDEKAH' ? 'SDK' : 'AGN';
+      const count = await tx.stockOut.count({ where: { exitType } });
+      const documentNumber = `${prefix}-${String(count + 1).padStart(3, '0')}`;
+
       const stockOut = await tx.stockOut.create({
         data: {
           productId, userId, discountId, agentId, quantity, pricePerUnit,
@@ -57,7 +68,11 @@ export class StockOutService {
           notaUrl: file?.path || file?.url,
           notes,
           size,
-          productStockSnapshot: product.stock - quantity
+          exitType,
+          unitsPerPack,
+          pricePerSmallUnit,
+          productStockSnapshot: product.stock - quantity,
+          documentNumber
         },
         include: { product: true }
       });
@@ -73,7 +88,7 @@ export class StockOutService {
     // Audit log di luar transaction
     createAuditLog({
       userId, action: 'STOCK_OUT', entity: 'PRODUCT', entityId: productId,
-      newValue: { quantity },
+      newValue: { quantity, exitType },
       metadata: { stockOutId: stockOut.id }
     });
 

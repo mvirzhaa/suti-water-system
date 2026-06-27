@@ -27,6 +27,7 @@ const stockInSchema = z.object({
   quantity: z.number().min(1, 'Kuantitas minimal 1'),
   pricePerUnit: z.number().min(0, 'Harga tidak boleh negatif'),
   size: z.enum(WATER_SIZES).optional(),
+  unitsPerPack: z.number().int().min(0).optional(),
   nota: z.any().optional(), // File handle
 });
 type StockInFormData = z.infer<typeof stockInSchema>;
@@ -134,6 +135,7 @@ export default function StockInPage() {
       payload.append('entryDate', formData.entryDate);
       if (formData.supplierId) payload.append('supplierId', formData.supplierId);
       if (formData.size) payload.append('size', formData.size);
+      payload.append('unitsPerPack', (formData.unitsPerPack ?? 0).toString());
       
       const fileInput = notaInputRef.current;
       if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -433,6 +435,14 @@ export default function StockInPage() {
                 <div>
                   <input type="number" placeholder="Harga per unit" {...register('pricePerUnit', { valueAsNumber: true })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none' }} />
                   {errors.pricePerUnit && <span style={{ color: 'red', fontSize: '0.75rem' }}>{errors.pricePerUnit.message}</span>}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600 }}>Isi per Pack</label>
+                <div>
+                  <input type="number" min={0} placeholder="cth: 24 botol/kardus" {...register('unitsPerPack', { valueAsNumber: true })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', outline: 'none' }} />
+                  <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Jumlah satuan kecil dalam 1 kemasan utama (opsional)</span>
                 </div>
               </div>
 

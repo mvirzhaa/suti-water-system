@@ -25,7 +25,7 @@ export const globalRateLimit = rateLimit({
  */
 export const loginRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 menit
-  max: 5,
+  max: 50, // Temporarily increased for development
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Hitung hanya request yang gagal

@@ -383,6 +383,60 @@ export class RefrigeratorService {
     return { id: fillId };
   }
 
+  /** Update data pengisian kulkas (edit jika ada kesalahan input). */
+  async updateFill(
+    refrigeratorId: string,
+    fillId: string,
+    body: Partial<FillBody>,
+    userId: string,
+    audit?: AuditCtx,
+  ) {
+    const fill = await prisma.refrigeratorFill.findFirst({
+      where: { id: fillId, refrigeratorId },
+    });
+    if (!fill) throw ApiError.notFound('Data pengisian tidak ditemukan');
+
+    const boxCount = body.boxCount ?? fill.boxCount;
+    const bottlesPerBox = body.bottlesPerBox ?? fill.bottlesPerBox;
+    const pricePerBox = body.pricePerBox !== undefined
+      ? new Prisma.Decimal(body.pricePerBox)
+      : fill.pricePerBox;
+    const pricePerBottle = body.pricePerBottle !== undefined
+      ? new Prisma.Decimal(body.pricePerBottle)
+      : fill.pricePerBottle;
+
+    const totalBottles = boxCount * bottlesPerBox;
+    const totalCost = pricePerBox.mul(boxCount);
+    const fillDate = body.fillDate ? new Date(body.fillDate) : fill.fillDate;
+
+    const updated = await prisma.refrigeratorFill.update({
+      where: { id: fillId },
+      data: {
+        fillDate,
+        boxCount,
+        bottlesPerBox,
+        pricePerBox,
+        pricePerBottle,
+        totalBottles,
+        totalCost,
+        notes: body.notes !== undefined ? (body.notes ?? null) : fill.notes,
+      },
+      include: { user: { select: { id: true, name: true } } },
+    });
+
+    createAuditLog({
+      userId,
+      action: 'UPDATE',
+      entity: 'RefrigeratorFill',
+      entityId: fillId,
+      oldValue: { boxCount: fill.boxCount, totalCost: fill.totalCost.toString() },
+      newValue: { boxCount: updated.boxCount, totalCost: updated.totalCost.toString() },
+      ...audit,
+    });
+
+    return updated;
+  }
+
   // -------------------------------------------------------------------------
   //  REKAP PEKANAN / BAGI HASIL
   // -------------------------------------------------------------------------

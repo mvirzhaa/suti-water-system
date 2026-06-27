@@ -70,6 +70,7 @@ export default function RefrigeratorsPage() {
   const [fillTarget, setFillTarget] = useState<Refrigerator | null>(null);
   const [historyTarget, setHistoryTarget] = useState<Refrigerator | null>(null);
   const [recapTarget, setRecapTarget] = useState<Refrigerator | null>(null);
+  const [editFillTarget, setEditFillTarget] = useState<{ fill: RefrigeratorFill; refrigerator: Refrigerator } | null>(null);
 
   const fetchData = useCallback(async (search?: string) => {
     setLoading(true);
@@ -237,8 +238,25 @@ export default function RefrigeratorsPage() {
           fetchData(searchInput);
         }}
       />
-      <HistoryModal open={!!historyTarget} refrigerator={historyTarget} onClose={() => setHistoryTarget(null)} />
+      <HistoryModal
+        open={!!historyTarget}
+        refrigerator={historyTarget}
+        onClose={() => setHistoryTarget(null)}
+        onEditFill={(fill) => {
+          if (historyTarget) setEditFillTarget({ fill, refrigerator: historyTarget });
+        }}
+      />
       <RecapModal open={!!recapTarget} refrigerator={recapTarget} canDelete={canDelete} onClose={() => setRecapTarget(null)} />
+      <EditFillModal
+        open={!!editFillTarget}
+        fill={editFillTarget?.fill ?? null}
+        refrigerator={editFillTarget?.refrigerator ?? null}
+        onClose={() => setEditFillTarget(null)}
+        onSaved={() => {
+          setEditFillTarget(null);
+          fetchData(searchInput);
+        }}
+      />
     </div>
   );
 }
@@ -334,7 +352,7 @@ function RefrigeratorCard({
           onClick={onFill}
           style={{ flex: 1, backgroundColor: BRAND, color: 'white', border: 'none', padding: '0.55rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontWeight: 600, cursor: 'pointer' }}
         >
-          <PlusCircle size={16} /> Isi Kulkas
+          <PlusCircle size={16} /> Rekap Pendapatan
         </button>
         <button onClick={onHistory} title="Riwayat pengisian" style={iconBtn('#64748b')}>
           <History size={16} />
@@ -714,7 +732,7 @@ function FillModal({
             <PlusCircle size={22} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>Isi Kulkas</h2>
+            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>Rekap Pendapatan</h2>
             <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
               {refrigerator?.name}
               {refrigerator?.location ? ` • ${refrigerator.location}` : ''}
@@ -790,7 +808,17 @@ function FillModal({
 //  MODAL RIWAYAT PENGISIAN
 // ===========================================================================
 
-function HistoryModal({ open, refrigerator, onClose }: { open: boolean; refrigerator: Refrigerator | null; onClose: () => void }) {
+function HistoryModal({
+  open,
+  refrigerator,
+  onClose,
+  onEditFill,
+}: {
+  open: boolean;
+  refrigerator: Refrigerator | null;
+  onClose: () => void;
+  onEditFill?: (fill: RefrigeratorFill) => void;
+}) {
   const [rows, setRows] = useState<RefrigeratorFill[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -816,7 +844,7 @@ function HistoryModal({ open, refrigerator, onClose }: { open: boolean; refriger
     <Modal
       isOpen={open}
       onClose={onClose}
-      maxWidth="760px"
+      maxWidth="800px"
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div style={{ backgroundColor: BRAND, padding: '0.5rem', borderRadius: '0.5rem', color: 'white', display: 'flex' }}>
@@ -843,6 +871,7 @@ function HistoryModal({ open, refrigerator, onClose }: { open: boolean; refriger
                 <th style={{ textAlign: 'right' }}>Harga/kardus</th>
                 <th style={{ textAlign: 'right' }}>Total nilai</th>
                 <th>Petugas</th>
+                {onEditFill && <th style={{ textAlign: 'center' }}>Edit</th>}
               </tr>
             </thead>
             <tbody>
@@ -853,12 +882,153 @@ function HistoryModal({ open, refrigerator, onClose }: { open: boolean; refriger
                   <td style={{ textAlign: 'right' }}>{formatRupiah(f.pricePerBox)}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatRupiah(f.totalCost)}</td>
                   <td style={{ color: '#64748b' }}>{f.user?.name ?? '-'}</td>
+                  {onEditFill && (
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        onClick={() => onEditFill(f)}
+                        title="Edit pengisian"
+                        style={{ backgroundColor: '#f59e0b', color: 'white', border: 'none', padding: '0.25rem 0.6rem', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+                      >
+                        ✏️ Edit
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+    </Modal>
+  );
+}
+
+// ===========================================================================
+//  MODAL EDIT PENGISIAN KULKAS
+// ===========================================================================
+
+function EditFillModal({
+  open,
+  fill,
+  refrigerator,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  fill: RefrigeratorFill | null;
+  refrigerator: Refrigerator | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    fillDate: '',
+    boxCount: 0,
+    bottlesPerBox: 0,
+    pricePerBox: 0,
+    pricePerBottle: 0,
+    notes: '',
+  });
+
+  useEffect(() => {
+    if (fill) {
+      setForm({
+        fillDate: fill.fillDate.slice(0, 10),
+        boxCount: fill.boxCount,
+        bottlesPerBox: fill.bottlesPerBox,
+        pricePerBox: Number(fill.pricePerBox),
+        pricePerBottle: Number(fill.pricePerBottle),
+        notes: fill.notes ?? '',
+      });
+    }
+  }, [fill]);
+
+  if (!fill || !refrigerator) return null;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await refrigeratorService.updateFill(refrigerator.id, fill.id, {
+        fillDate: form.fillDate,
+        boxCount: form.boxCount,
+        bottlesPerBox: form.bottlesPerBox,
+        pricePerBox: form.pricePerBox,
+        pricePerBottle: form.pricePerBottle,
+        notes: form.notes || null,
+      });
+      Swal.fire({ title: 'Berhasil!', text: 'Data pengisian berhasil diperbarui.', icon: 'success', timer: 1500, showConfirmButton: false });
+      onSaved();
+    } catch (error) {
+      Swal.fire('Gagal!', getApiErrorMessage(error, 'Gagal memperbarui data pengisian.'), 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '0.5rem 0.75rem',
+    border: '1px solid #cbd5e1', borderRadius: '0.375rem', outline: 'none', fontSize: '0.9rem',
+  };
+  const labelStyle: React.CSSProperties = { fontSize: '0.82rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '0.3rem' };
+
+  return (
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      maxWidth="500px"
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ backgroundColor: '#f59e0b', padding: '0.5rem', borderRadius: '0.5rem', color: 'white', display: 'flex' }}>
+            <History size={20} />
+          </div>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>Edit Pengisian Kulkas</h2>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>{refrigerator.name}</p>
+          </div>
+        </div>
+      }
+    >
+      <div style={{ display: 'grid', gap: '1rem' }}>
+        <div>
+          <label style={labelStyle}>Tanggal Pengisian</label>
+          <input type="date" style={inputStyle} value={form.fillDate} onChange={(e) => setForm(f => ({ ...f, fillDate: e.target.value }))} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div>
+            <label style={labelStyle}>Jumlah Kardus</label>
+            <input type="number" min={0} style={inputStyle} value={form.boxCount} onChange={(e) => setForm(f => ({ ...f, boxCount: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <label style={labelStyle}>Botol per Kardus</label>
+            <input type="number" min={0} style={inputStyle} value={form.bottlesPerBox} onChange={(e) => setForm(f => ({ ...f, bottlesPerBox: Number(e.target.value) }))} />
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div>
+            <label style={labelStyle}>Harga per Kardus (Rp)</label>
+            <input type="number" min={0} style={inputStyle} value={form.pricePerBox} onChange={(e) => setForm(f => ({ ...f, pricePerBox: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <label style={labelStyle}>Harga per Botol (Rp)</label>
+            <input type="number" min={0} style={inputStyle} value={form.pricePerBottle} onChange={(e) => setForm(f => ({ ...f, pricePerBottle: Number(e.target.value) }))} />
+          </div>
+        </div>
+        <div>
+          <label style={labelStyle}>Estimasi Total</label>
+          <input readOnly style={{ ...inputStyle, backgroundColor: '#f1f5f9', fontWeight: 700, color: '#0CA5EA' }}
+            value={formatRupiah(form.pricePerBox * form.boxCount)} />
+        </div>
+        <div>
+          <label style={labelStyle}>Catatan</label>
+          <textarea rows={2} style={{ ...inputStyle, resize: 'vertical' }} value={form.notes} onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+          <button onClick={onClose} style={{ padding: '0.6rem 1.5rem', border: '1px solid #cbd5e1', borderRadius: '0.5rem', backgroundColor: 'white', cursor: 'pointer', fontWeight: 600 }}>Batal</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '0.6rem 1.5rem', border: 'none', borderRadius: '0.5rem', backgroundColor: '#f59e0b', color: 'white', cursor: 'pointer', fontWeight: 600, opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Menyimpan...' : '💾 Simpan Perubahan'}
+          </button>
+        </div>
+      </div>
     </Modal>
   );
 }
