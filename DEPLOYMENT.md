@@ -79,7 +79,7 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-Pada tahap ini, aplikasi seharusnya sudah bisa diakses melalui `http://sutiwater.com:2002` (karena port 2002 di-forward ke server Anda).
+Pada tahap ini, aplikasi seharusnya sudah bisa diakses melalui `http://sutiwater.com` (pastikan A record di DNS domain sutiwater.com sudah diarahkan ke IP `101.50.1.12`).
 
 ## 7. Instalasi SSL Gratis (HTTPS)
 Untuk mengamankan website Anda dengan HTTPS (Let's Encrypt), jalankan:
