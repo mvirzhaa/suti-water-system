@@ -3,9 +3,9 @@
 Panduan ini berisi langkah-langkah untuk memindahkan dan menjalankan aplikasi Suti Water System di server VPS/Dedicated (Ubuntu/Debian) Anda yang beralamat di `101.50.1.12`.
 
 ## 1. Persiapan Server
-Pastikan Anda sudah login ke server via SSH:
+Pastikan Anda sudah login ke server via SSH (menggunakan port 50029 sesuai setting DNS/Router):
 ```bash
-ssh root@101.50.1.12
+ssh -p 50029 root@101.50.1.12
 ```
 
 Lalu install **Docker**, **Docker Compose**, dan **Nginx** (Jika belum):
@@ -42,7 +42,7 @@ Silakan ganti nilai password untuk Database, Redis, dan kunci JWT dengan kata sa
 ## 4. Build dan Jalankan Docker Compose
 Jalankan perintah berikut untuk mengunduh image, melakukan build aplikasi (Frontend & Backend), dan menghidupkan seluruh layanan di latar belakang:
 ```bash
-docker-compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 Setelah selesai, Anda bisa mengecek apakah semuanya berjalan lancar dengan:
@@ -55,10 +55,10 @@ Anda seharusnya melihat 4 container berjalan: `suti-water-system_web`, `suti-wat
 Kita perlu melakukan sinkronisasi struktur database (Prisma Push) dan mengisi data awal (Seeding) ke dalam PostgreSQL yang berjalan di Docker:
 ```bash
 # Sinkronisasi schema
-docker-compose -f docker-compose.prod.yml exec api npx prisma db push --accept-data-loss
+docker compose -f docker-compose.prod.yml exec api npx prisma db push --accept-data-loss
 
 # Seed data (opsional, jika Anda butuh akun awal admin)
-docker-compose -f docker-compose.prod.yml exec api npx tsx prisma/seed.ts
+docker compose -f docker-compose.prod.yml exec api npx tsx prisma/seed.ts
 ```
 
 ## 6. Konfigurasi Nginx
@@ -79,7 +79,7 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-Pada tahap ini, aplikasi seharusnya sudah bisa diakses melalui `http://sutiwater.com` (pastikan A record di DNS domain sutiwater.com sudah diarahkan ke IP `101.50.1.12`).
+Pada tahap ini, aplikasi seharusnya sudah bisa diakses melalui `http://sutiwater.com:2002` (karena port 2002 di-forward ke server Anda).
 
 ## 7. Instalasi SSL Gratis (HTTPS)
 Untuk mengamankan website Anda dengan HTTPS (Let's Encrypt), jalankan:
