@@ -1,24 +1,29 @@
 /**
- * Backfill data penjualan historis Mei-Juli 2026 ke StockOut.
+ * Buat 2 produk dasar (kalau belum ada) lalu backfill data penjualan historis
+ * Mei-Juli 2026 ke StockOut.
  *
- * LATAR BELAKANG: total penjualan lama dicatat per kategori "200ml"/"330ml" yang
- * TIDAK cocok dengan ukuran katalog saat ini (220ml/330ml/550ml/600ml/Galon).
- * Atas instruksi user: total-kan semua angka lama, hapus seluruh StockOut periode
- * Mei-Juli yang ada sekarang (apapun ukurannya), lalu tulis ulang dari nol dibagi
- * ke 5 ukuran sistem saat ini, dengan lonjakan volume di setiap hari Jumat
- * ("Jumat Berkah").
+ * LATAR BELAKANG: katalog produk produksi kosong total (belum pernah diisi).
+ * User minta 2 produk dibuat: "Suti Water Cup" (ukuran 200ml) dan
+ * "Suti Water Botol" (ukuran 330ml), masing-masing dijual per dus (unit Kardus).
+ * Angka penjualan bulanan yang diberikan (200ml: Mei 754/Juni 739/Juli 836,
+ * 330ml: Mei 1645/Juni 2148/Juli 2241) dipakai APA ADANYA sebagai jumlah dus
+ * terjual per bulan — tidak direka-reka lagi karena sudah persis cocok dengan
+ * 2 produk yang dibuat. Setiap hari Jumat dapat lonjakan volume ("Jumat Berkah").
+ *
+ * KEPUTUSAN PENTING: backfill ini TIDAK mengurangi Product.stock ataupun
+ * StockIn.remainingStock. Produk baru dibuat dengan stok awal = kondisi fisik
+ * riil hari ini (placeholder, lihat PRODUCTS_TO_ENSURE), dan histori penjualan
+ * ini murni catatan/laporan masa lalu, terpisah dari stok saat ini.
  *
  * CARA PAKAI:
  *   1. npx tsx prisma/backfill-mei-jul-2026.ts            -> DRY RUN (baca-saja, aman)
- *      Review output: mapping produk per ukuran, ringkasan angka per bulan/ukuran.
- *      Kalau ada ukuran dengan produk ambigu/tidak ketemu, isi PRODUCT_ID_OVERRIDE
- *      di bawah lalu jalankan dry run lagi sampai bersih.
- *   2. Backup manual dulu (di luar script ini) sebelum apply, mis:
- *      pg_dump "$DATABASE_URL" -t stock_outs -t products -t stock_ins > backup.sql
- *      (script ini JUGA otomatis export JSON backup StockOut yang mau dihapus,
- *      tapi pg_dump manual tetap disarankan untuk jaring pengaman penuh)
+ *      Review ringkasan angka per bulan/ukuran sebelum lanjut.
+ *   2. Backup manual disarankan sebelum apply:
+ *      docker exec suti-water_db_1 pg_dump -U <user> -d <db> -t products -t stock_out > backup.sql
+ *      (script ini JUGA otomatis export JSON backup StockOut yang mau dihapus)
  *   3. npx tsx prisma/backfill-mei-jul-2026.ts --apply --confirm=DELETE-MEI-JUL-2026
- *      -> BENERAN menghapus StockOut Mei-Juli 2026 (semua ukuran) lalu insert ulang.
+ *      -> BENERAN membuat produk (kalau belum ada) + menghapus StockOut Mei-Juli 2026
+ *      untuk 2 produk ini (kalau ada) lalu insert ulang.
  */
 
 import { PrismaClient, StockOutType } from '@prisma/client';
@@ -38,35 +43,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const YEAR = 2026;
 const MONTHS = [5, 6, 7] as const; // Mei, Juni, Juli
 
-// Total penjualan per bulan = gabungan kategori lama "200ml" + "330ml".
-// (Mei: 754+1645, Juni: 739+2148, Juli: 836+2241 — total keseluruhan 8.363 pcs)
-const MONTHLY_TOTAL: Record<number, number> = {
-  5: 754 + 1645,
-  6: 739 + 2148,
-  7: 836 + 2241,
-};
+// Produk yang harus ada sebelum backfill jalan. Kalau produk dengan `name` ini
+// sudah ada (match persis), dipakai apa adanya (harga/stok TIDAK ditimpa).
+// Kalau belum ada, dibuat baru dengan nilai di bawah.
+const PRODUCTS_TO_ENSURE: {
+  size: string;
+  name: string;
+  unit: string;
+  priceSell: number;
+  priceBuy: number; // TODO user: belum dikasih harga beli, masih placeholder 0 — update via dashboard
+  initialStock: number; // placeholder ("asal dulu aja") — update via dashboard sesuai stok fisik riil
+}[] = [
+  { size: '200ml', name: 'Suti Water Cup', unit: 'Kardus', priceSell: 20000, priceBuy: 0, initialStock: 100 },
+  { size: '330ml', name: 'Suti Water Botol', unit: 'Kardus', priceSell: 35000, priceBuy: 0, initialStock: 100 },
+];
 
-// Bobot pembagian total ke ukuran katalog saat ini. Harus berjumlah 1.
-const SIZE_WEIGHTS: Record<string, number> = {
-  '220ml': 0.30,
-  '330ml': 0.40,
-  '550ml': 0.15,
-  '600ml': 0.10,
-  Galon: 0.05,
+// Total dus terjual per bulan per ukuran — angka asli dari user, dipakai langsung.
+const MONTHLY_TOTAL_BY_SIZE: Record<string, Record<number, number>> = {
+  '200ml': { 5: 754, 6: 739, 7: 836 },
+  '330ml': { 5: 1645, 6: 2148, 7: 2241 },
 };
-
-// Pola pencarian produk aktif per ukuran (ILIKE terhadap products.name).
-const SIZE_NAME_PATTERN: Record<string, string> = {
-  '220ml': '%220ml%',
-  '330ml': '%330ml%',
-  '550ml': '%550ml%',
-  '600ml': '%600ml%',
-  Galon: '%galon%',
-};
-
-// ISI MANUAL kalau dry-run melaporkan ukuran dengan produk ambigu (>1 match)
-// atau tidak ketemu (0 match). Contoh: { '600ml': 'uuid-produk-600ml-kardus' }
-const PRODUCT_ID_OVERRIDE: Partial<Record<string, string>> = {};
 
 // Campuran jenis keluar (exit_type). Harus berjumlah 1.
 const EXIT_TYPE_WEIGHTS: { type: StockOutType; weight: number }[] = [
@@ -122,104 +118,92 @@ function allocateInt(total: number, weights: number[]): number[] {
   return result;
 }
 
-async function resolveProductForSize(size: string): Promise<{ id: string; name: string; stock: number; priceSell: string }> {
-  const override = PRODUCT_ID_OVERRIDE[size];
-  if (override) {
-    const p = await prisma.product.findUnique({ where: { id: override } });
-    if (!p || p.deletedAt || !p.isActive) {
-      throw new Error(`PRODUCT_ID_OVERRIDE untuk "${size}" (${override}) tidak valid/aktif.`);
+interface ResolvedProduct {
+  id: string;
+  name: string;
+  size: string;
+  priceSell: number;
+  wasCreated: boolean;
+}
+
+/** Cari produk per `name` persis; buat baru kalau belum ada. Tidak pernah menimpa produk yang sudah ada. */
+async function ensureProducts(tx: any, apply: boolean): Promise<Record<string, ResolvedProduct>> {
+  const resolved: Record<string, ResolvedProduct> = {};
+  console.log('\n=== Produk yang dibutuhkan ===');
+
+  for (const spec of PRODUCTS_TO_ENSURE) {
+    const existing = await tx.product.findFirst({ where: { name: spec.name, deletedAt: null } });
+
+    if (existing) {
+      resolved[spec.size] = {
+        id: existing.id,
+        name: existing.name,
+        size: spec.size,
+        priceSell: Number(existing.priceSell),
+        wasCreated: false,
+      };
+      console.log(`  [SUDAH ADA] ${spec.size.padEnd(6)} -> [${existing.id}] ${existing.name} (harga jual: ${existing.priceSell}, stok saat ini: ${existing.stock}) — TIDAK diubah.`);
+      continue;
     }
-    return { id: p.id, name: p.name, stock: p.stock, priceSell: p.priceSell.toString() };
+
+    if (!apply) {
+      console.log(`  [AKAN DIBUAT] ${spec.size.padEnd(6)} -> "${spec.name}" | unit=${spec.unit} | harga jual=${spec.priceSell} | harga beli=${spec.priceBuy} | stok awal=${spec.initialStock}`);
+      resolved[spec.size] = { id: '(belum dibuat)', name: spec.name, size: spec.size, priceSell: spec.priceSell, wasCreated: true };
+      continue;
+    }
+
+    const created = await tx.product.create({
+      data: {
+        name: spec.name,
+        unit: spec.unit,
+        priceSell: spec.priceSell,
+        priceBuy: spec.priceBuy,
+        stock: spec.initialStock,
+      },
+    });
+    resolved[spec.size] = { id: created.id, name: created.name, size: spec.size, priceSell: spec.priceSell, wasCreated: true };
+    console.log(`  [DIBUAT] ${spec.size.padEnd(6)} -> [${created.id}] ${created.name}`);
   }
 
-  const pattern = SIZE_NAME_PATTERN[size];
-  if (!pattern) throw new Error(`SIZE_NAME_PATTERN tidak punya entri untuk ukuran "${size}"`);
-  const matches = await prisma.product.findMany({
-    where: { isActive: true, deletedAt: null, name: { contains: pattern.replace(/%/g, ''), mode: 'insensitive' } },
-  });
-
-  if (matches.length === 0) {
-    throw new Error(
-      `Tidak ada produk aktif yang cocok untuk ukuran "${size}" (pola "${pattern}"). ` +
-      `Isi PRODUCT_ID_OVERRIDE['${size}'] secara manual.`
-    );
-  }
-  if (matches.length > 1) {
-    const names = matches.map((m) => `  - ${m.id}  ${m.name}`).join('\n');
-    throw new Error(
-      `Ada ${matches.length} produk aktif yang cocok untuk ukuran "${size}", ambigu:\n${names}\n` +
-      `Isi PRODUCT_ID_OVERRIDE['${size}'] dengan salah satu id di atas.`
-    );
-  }
-  const p = matches[0]!;
-  return { id: p.id, name: p.name, stock: p.stock, priceSell: p.priceSell.toString() };
+  return resolved;
 }
 
 interface PlannedRow {
   date: Date;
   size: string;
-  productId: string;
-  productName: string;
   exitType: StockOutType;
   quantity: number;
-  pricePerUnit: number;
 }
 
-async function buildPlan(): Promise<PlannedRow[]> {
-  const sizeKeys = Object.keys(SIZE_WEIGHTS);
-  const sizeWeightSum = Object.values(SIZE_WEIGHTS).reduce((a, b) => a + b, 0);
-  if (Math.abs(sizeWeightSum - 1) > 1e-6) {
-    throw new Error(`SIZE_WEIGHTS harus berjumlah 1, saat ini ${sizeWeightSum}`);
-  }
+function buildPlan(): PlannedRow[] {
   const exitWeightSum = EXIT_TYPE_WEIGHTS.reduce((a, b) => a + b.weight, 0);
   if (Math.abs(exitWeightSum - 1) > 1e-6) {
     throw new Error(`EXIT_TYPE_WEIGHTS harus berjumlah 1, saat ini ${exitWeightSum}`);
   }
 
-  const products: Record<string, { id: string; name: string; priceSell: string }> = {};
-  console.log('\n=== Resolusi produk per ukuran ===');
-  for (const size of sizeKeys) {
-    const p = await resolveProductForSize(size);
-    products[size] = p;
-    console.log(`  ${size.padEnd(6)} -> [${p.id}] ${p.name}  (harga jual saat ini: ${p.priceSell})`);
-  }
-
   const plan: PlannedRow[] = [];
+  const sizes = Object.keys(MONTHLY_TOTAL_BY_SIZE);
 
-  for (const month of MONTHS) {
-    const nDays = daysInMonth(YEAR, month);
-    const dates = Array.from({ length: nDays }, (_, i) => new Date(Date.UTC(YEAR, month - 1, i + 1)));
-    const dayWeights = dates.map((d) => (isFriday(d) ? FRIDAY_MULTIPLIER : 1));
-    const monthlyTotal = MONTHLY_TOTAL[month] ?? 0;
-    const dailyQty = allocateInt(monthlyTotal, dayWeights);
+  for (const size of sizes) {
+    for (const month of MONTHS) {
+      const monthlyTotal = MONTHLY_TOTAL_BY_SIZE[size]?.[month] ?? 0;
+      if (monthlyTotal === 0) continue;
 
-    for (let i = 0; i < dates.length; i++) {
-      const date = dates[i]!;
-      const dayTotal = dailyQty[i] ?? 0;
-      if (dayTotal === 0) continue;
-      const sizeQty = allocateInt(dayTotal, sizeKeys.map((s) => SIZE_WEIGHTS[s] ?? 0));
+      const nDays = daysInMonth(YEAR, month);
+      const dates = Array.from({ length: nDays }, (_, i) => new Date(Date.UTC(YEAR, month - 1, i + 1)));
+      const dayWeights = dates.map((d) => (isFriday(d) ? FRIDAY_MULTIPLIER : 1));
+      const dailyQty = allocateInt(monthlyTotal, dayWeights);
 
-      for (let s = 0; s < sizeKeys.length; s++) {
-        const size = sizeKeys[s]!;
-        const qtyForSize = sizeQty[s] ?? 0;
-        if (qtyForSize === 0) continue;
-        const exitQty = allocateInt(qtyForSize, EXIT_TYPE_WEIGHTS.map((e) => e.weight));
+      for (let i = 0; i < dates.length; i++) {
+        const date = dates[i]!;
+        const dayTotal = dailyQty[i] ?? 0;
+        if (dayTotal === 0) continue;
 
+        const exitQty = allocateInt(dayTotal, EXIT_TYPE_WEIGHTS.map((e) => e.weight));
         for (let e = 0; e < EXIT_TYPE_WEIGHTS.length; e++) {
           const qty = exitQty[e] ?? 0;
           if (qty === 0) continue;
-          const product = products[size];
-          if (!product) throw new Error(`Produk untuk ukuran "${size}" belum ter-resolve`);
-          const exitTypeEntry = EXIT_TYPE_WEIGHTS[e]!;
-          plan.push({
-            date,
-            size,
-            productId: product.id,
-            productName: product.name,
-            exitType: exitTypeEntry.type,
-            quantity: qty,
-            pricePerUnit: Number(product.priceSell),
-          });
+          plan.push({ date, size, exitType: EXIT_TYPE_WEIGHTS[e]!.type, quantity: qty });
         }
       }
     }
@@ -245,19 +229,25 @@ function printSummary(plan: PlannedRow[]) {
     grandTotal += row.quantity;
   }
 
-  for (const [k, v] of Object.entries(byMonthSize)) console.log(`  ${k.padEnd(20)} : ${v}`);
+  const target = Object.values(MONTHLY_TOTAL_BY_SIZE).reduce(
+    (sum, byMonth) => sum + Object.values(byMonth).reduce((a, b) => a + b, 0),
+    0
+  );
+
+  for (const [k, v] of Object.entries(byMonthSize)) console.log(`  ${k.padEnd(20)} : ${v} dus`);
   console.log('  ---');
-  for (const [k, v] of Object.entries(byExitType)) console.log(`  exit_type ${k.padEnd(8)} : ${v}`);
+  for (const [k, v] of Object.entries(byExitType)) console.log(`  exit_type ${k.padEnd(8)} : ${v} dus`);
   console.log('  ---');
-  console.log(`  Total hari Jumat     : ${fridayTotal}`);
-  console.log(`  Total hari lain      : ${otherTotal}`);
-  console.log(`  GRAND TOTAL          : ${grandTotal} (target: ${Object.values(MONTHLY_TOTAL).reduce((a, b) => a + b, 0)})`);
+  console.log(`  Total hari Jumat     : ${fridayTotal} dus`);
+  console.log(`  Total hari lain      : ${otherTotal} dus`);
+  console.log(`  GRAND TOTAL          : ${grandTotal} dus (target: ${target} dus)`);
   console.log(`  Jumlah baris StockOut yang akan dibuat: ${plan.length}`);
 }
 
-async function backupExisting() {
+async function backupExisting(productIds: string[]) {
+  if (productIds.length === 0) return [];
   const existing = await prisma.stockOut.findMany({
-    where: { exitDate: { gte: rangeStart, lte: rangeEnd } },
+    where: { exitDate: { gte: rangeStart, lte: rangeEnd }, productId: { in: productIds } },
     include: { product: { select: { name: true } } },
   });
 
@@ -265,63 +255,14 @@ async function backupExisting() {
   const file = path.join(BACKUP_DIR, `stockout-backup-${Date.now()}.json`);
   fs.writeFileSync(file, JSON.stringify(existing, null, 2));
   console.log(`\n=== Backup ===`);
-  console.log(`  ${existing.length} baris StockOut existing (periode ${rangeStart.toISOString().slice(0, 10)}..${rangeEnd.toISOString().slice(0, 10)}) di-backup ke:`);
+  console.log(`  ${existing.length} baris StockOut existing (periode ${rangeStart.toISOString().slice(0, 10)}..${rangeEnd.toISOString().slice(0, 10)}, produk terkait) di-backup ke:`);
   console.log(`  ${file}`);
   return existing;
 }
 
-/** Balikkan efek stok satu StockOut (mirror StockOutService.delete) lalu hapus barisnya. */
-async function reverseAndDeleteStockOut(tx: any, stockOut: { id: string; productId: string; quantity: number }) {
-  await tx.product.update({
-    where: { id: stockOut.productId },
-    data: { stock: { increment: stockOut.quantity } },
-  });
-
-  let qtyToRestore = stockOut.quantity;
-  const recentStockIns = await tx.stockIn.findMany({
-    where: { productId: stockOut.productId },
-    orderBy: { entryDate: 'desc' },
-  });
-  for (const stIn of recentStockIns) {
-    if (qtyToRestore <= 0) break;
-    const spaceLeft = stIn.quantity - stIn.remainingStock;
-    if (spaceLeft > 0) {
-      const restoreAmount = Math.min(qtyToRestore, spaceLeft);
-      await tx.stockIn.update({
-        where: { id: stIn.id },
-        data: { remainingStock: stIn.remainingStock + restoreAmount },
-      });
-      qtyToRestore -= restoreAmount;
-    }
-  }
-
-  await tx.stockOut.delete({ where: { id: stockOut.id } });
-}
-
-/** Insert satu StockOut baru (mirror StockOutService.create, tanpa validasi HTTP/discount). */
-async function insertStockOut(tx: any, row: PlannedRow, docCounters: Record<string, number>) {
-  const product = await tx.product.findUnique({ where: { id: row.productId } });
-  if (!product) throw new Error(`Produk ${row.productId} tidak ditemukan saat insert`);
-
-  const totalPrice = row.exitType === 'AGEN' ? row.pricePerUnit * row.quantity : 0;
-
-  let qtyToDeplete = row.quantity;
-  const availableStockIns = await tx.stockIn.findMany({
-    where: { productId: row.productId, remainingStock: { gt: 0 } },
-    orderBy: { entryDate: 'asc' },
-  });
-  for (const stIn of availableStockIns) {
-    if (qtyToDeplete <= 0) break;
-    const depleteAmount = Math.min(qtyToDeplete, stIn.remainingStock);
-    await tx.stockIn.update({
-      where: { id: stIn.id },
-      data: { remainingStock: stIn.remainingStock - depleteAmount },
-    });
-    qtyToDeplete -= depleteAmount;
-  }
-  // Catatan: kalau stok masuk historis tidak cukup untuk menutupi kuantitas ini,
-  // sisanya (qtyToDeplete > 0) tidak dikurangkan dari StockIn manapun — sama seperti
-  // batasan FIFO yang sudah ada di sistem, bukan hal baru yang diperkenalkan script ini.
+/** Insert satu StockOut baru. TIDAK menyentuh Product.stock atau StockIn.remainingStock (histori murni). */
+async function insertStockOut(tx: any, row: PlannedRow, productId: string, pricePerUnit: number, docCounters: Record<string, number>) {
+  const totalPrice = row.exitType === 'AGEN' ? pricePerUnit * row.quantity : 0;
 
   const prefix = row.exitType === 'KULKAS' ? 'KLK' : row.exitType === 'SEDEKAH' ? 'SDK' : 'AGN';
   docCounters[row.exitType] = (docCounters[row.exitType] ?? 0) + 1;
@@ -329,27 +270,22 @@ async function insertStockOut(tx: any, row: PlannedRow, docCounters: Record<stri
 
   await tx.stockOut.create({
     data: {
-      productId: row.productId,
+      productId,
       userId: SYSTEM_USER_ID,
       quantity: row.quantity,
-      pricePerUnit: row.pricePerUnit,
+      pricePerUnit,
       discountAmount: 0,
       totalPrice,
       buyerName: BUYER_NAME,
       exitDate: row.date,
-      notes: 'Backfill histori Mei-Juli 2026 (lihat prisma/backfill-mei-jul-2026.ts)',
+      notes: 'Backfill histori Mei-Juli 2026 (lihat prisma/backfill-mei-jul-2026.ts) — tidak mempengaruhi stok',
       size: row.size,
       exitType: row.exitType,
       unitsPerPack: 0,
       pricePerSmallUnit: 0,
-      productStockSnapshot: product.stock - row.quantity,
+      productStockSnapshot: 0, // tidak berarti, backfill ini tidak melacak stok riwayat
       documentNumber,
     },
-  });
-
-  await tx.product.update({
-    where: { id: row.productId },
-    data: { stock: { decrement: row.quantity } },
   });
 }
 
@@ -359,10 +295,11 @@ async function main() {
   console.log(`Mode: ${APPLY ? 'APPLY (akan menulis ke DB)' : 'DRY RUN (baca-saja)'}`);
   console.log(`Rentang tanggal: ${rangeStart.toISOString().slice(0, 10)} s/d ${rangeEnd.toISOString().slice(0, 10)}`);
 
-  const plan = await buildPlan();
-  printSummary(plan);
+  const plan = buildPlan();
 
   if (!APPLY) {
+    await ensureProducts(prisma, false);
+    printSummary(plan);
     console.log('\nDry run selesai. Tidak ada perubahan di database.');
     console.log('Kalau ringkasan di atas sudah sesuai, jalankan ulang dengan:');
     console.log('  npx tsx prisma/backfill-mei-jul-2026.ts --apply --confirm=DELETE-MEI-JUL-2026');
@@ -381,7 +318,11 @@ async function main() {
   SYSTEM_USER_ID = admin.id;
   console.log(`\nMenggunakan user pencatat: ${admin.email} (${admin.id})`);
 
-  await backupExisting();
+  const products = await prisma.$transaction(async (tx) => ensureProducts(tx, true), { timeout: 30_000 });
+  printSummary(plan);
+
+  const productIds = Object.values(products).map((p) => p.id);
+  await backupExisting(productIds);
 
   for (const month of MONTHS) {
     const mStart = new Date(Date.UTC(YEAR, month - 1, 1));
@@ -391,11 +332,11 @@ async function main() {
     await prisma.$transaction(
       async (tx) => {
         const existing = await tx.stockOut.findMany({
-          where: { exitDate: { gte: mStart, lte: mEnd } },
+          where: { exitDate: { gte: mStart, lte: mEnd }, productId: { in: productIds } },
         });
-        console.log(`  Menghapus ${existing.length} StockOut lama...`);
-        for (const row of existing) {
-          await reverseAndDeleteStockOut(tx, row);
+        console.log(`  Menghapus ${existing.length} StockOut lama (produk terkait)...`);
+        if (existing.length > 0) {
+          await tx.stockOut.deleteMany({ where: { id: { in: existing.map((e: any) => e.id) } } });
         }
 
         const monthRows = plan.filter((r) => r.date >= mStart && r.date <= mEnd);
@@ -405,7 +346,9 @@ async function main() {
           docCounters[type] = await tx.stockOut.count({ where: { exitType: type as StockOutType } });
         }
         for (const row of monthRows) {
-          await insertStockOut(tx, row, docCounters);
+          const product = products[row.size];
+          if (!product) throw new Error(`Produk untuk ukuran "${row.size}" tidak ter-resolve`);
+          await insertStockOut(tx, row, product.id, product.priceSell, docCounters);
         }
       },
       { timeout: 120_000, maxWait: 20_000 }
@@ -414,7 +357,7 @@ async function main() {
     console.log(`  Bulan ${month}/${YEAR} selesai.`);
   }
 
-  console.log('\nSelesai. Semua StockOut Mei-Juli 2026 sudah ditulis ulang.');
+  console.log('\nSelesai. Produk sudah dipastikan ada, StockOut Mei-Juli 2026 sudah ditulis ulang (tanpa mengubah stok).');
 }
 
 main()
