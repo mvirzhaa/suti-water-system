@@ -409,6 +409,26 @@ async function main() {
   const productIds = Object.values(products).map((p) => p.id);
   await backupExisting(productIds);
 
+  // FASE 1: hapus SEMUA StockOut+StockIn lama untuk 2 produk ini di seluruh rentang
+  // Mei-Juli sekaligus (bukan per bulan) — supaya saat FASE 2 menghitung nomor
+  // dokumen baru per bulan, tidak ada baris lama bulan lain yang masih nyangkut
+  // dan bikin document_number baru bentrok dengan punya bulan yang belum diproses.
+  console.log('\n=== Fase 1: menghapus data lama di seluruh rentang Mei-Juli ===');
+  await prisma.$transaction(
+    async (tx) => {
+      const oldOut = await tx.stockOut.findMany({ where: { exitDate: { gte: rangeStart, lte: rangeEnd }, productId: { in: productIds } } });
+      console.log(`  Menghapus ${oldOut.length} StockOut lama...`);
+      for (const row of oldOut) await reverseAndDeleteStockOut(tx, row);
+
+      const oldIn = await tx.stockIn.findMany({ where: { entryDate: { gte: rangeStart, lte: rangeEnd }, productId: { in: productIds } } });
+      console.log(`  Menghapus ${oldIn.length} StockIn lama...`);
+      for (const row of oldIn) await reverseAndDeleteStockIn(tx, row);
+    },
+    { timeout: 120_000, maxWait: 20_000 }
+  );
+
+  // FASE 2: insert StockIn+StockOut baru per bulan (tabel sudah bersih dari data lama,
+  // jadi count() untuk document_number sekarang aman/berurutan).
   for (const month of MONTHS) {
     const mStart = new Date(Date.UTC(YEAR, month - 1, 1));
     const mEnd = new Date(Date.UTC(YEAR, month, 0));
@@ -416,17 +436,6 @@ async function main() {
 
     await prisma.$transaction(
       async (tx) => {
-        // 1) Hapus StockOut lama bulan ini (kalau ada, dari run sebelumnya) — reverse dulu
-        const oldOut = await tx.stockOut.findMany({ where: { exitDate: { gte: mStart, lte: mEnd }, productId: { in: productIds } } });
-        console.log(`  Menghapus ${oldOut.length} StockOut lama...`);
-        for (const row of oldOut) await reverseAndDeleteStockOut(tx, row);
-
-        // 2) Hapus StockIn lama bulan ini (kalau ada) — reverse dulu
-        const oldIn = await tx.stockIn.findMany({ where: { entryDate: { gte: mStart, lte: mEnd }, productId: { in: productIds } } });
-        console.log(`  Menghapus ${oldIn.length} StockIn lama...`);
-        for (const row of oldIn) await reverseAndDeleteStockIn(tx, row);
-
-        // 3) Insert StockIn bulan ini
         const monthInRows = stockInPlan.filter((r) => r.date >= mStart && r.date <= mEnd);
         console.log(`  Menyisipkan ${monthInRows.length} StockIn baru...`);
         for (const row of monthInRows) {
@@ -436,7 +445,6 @@ async function main() {
           await insertStockIn(tx, row, product.id, spec.priceBuy);
         }
 
-        // 4) Insert StockOut bulan ini (FIFO deplete StockIn di atas)
         const monthOutRows = stockOutPlan.filter((r) => r.date >= mStart && r.date <= mEnd);
         console.log(`  Menyisipkan ${monthOutRows.length} StockOut baru...`);
         const docCounters: Record<string, number> = {};
